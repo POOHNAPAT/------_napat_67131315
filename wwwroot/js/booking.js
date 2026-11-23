@@ -29,8 +29,22 @@
     button.disabled = true;
     message.textContent = params.has('Hours') ? 'กำลังตรวจเวลาว่างและคำนวณยอด…' : 'เลือกช่วงเวลาเพื่อดูยอด';
     for(const id of ['court-total','equipment-total','gross','discount','net']) document.getElementById(id).textContent = '—';
-    if(!params.has('Hours')) return;
+    if(!params.has('Hours')){
+      form.querySelectorAll('[data-equipment-availability]').forEach(label=>label.textContent='เลือกเวลาเพื่อดูจำนวนพร้อมใช้');
+      return;
+    }
     try {
+      const stockResponse=await fetch('/Bookings/EquipmentAvailability?'+params,{signal:current.signal,headers:{Accept:'application/json'}});
+      if(stockResponse.redirected)throw new Error('กรุณาเข้าสู่ระบบอีกครั้ง');
+      const stock=await stockResponse.json();
+      if(!stockResponse.ok)throw new Error(stock.error||'ไม่สามารถตรวจจำนวนอุปกรณ์ได้');
+      if(current!==request)return;
+      for(const label of form.querySelectorAll('[data-equipment-availability]')){
+        const id=label.dataset.equipmentAvailability;
+        const available=stock.find(item=>item.id===id)?.available??0;
+        label.textContent=`พร้อมใช้ในช่วงเวลาที่เลือก ${available} ${label.dataset.unit}`;
+        document.getElementById('equipment-'+id).max=String(Math.min(10,available));
+      }
       async function quote() {
         const response = await fetch('/Bookings/Quote?' + params, {signal:current.signal,headers:{Accept:'application/json'}});
         if(response.redirected) throw new Error('กรุณาเข้าสู่ระบบอีกครั้ง');

@@ -33,14 +33,15 @@ public partial class BookingStore
     private static IReadOnlyList<RentalEquipment> GetEquipment(DbConnection c, long? sportTypeId, bool includeInactive = false, DbTransaction? tx = null)
     {
         using var cmd = Cmd(c, """
-            SELECT e.Id,e.Name,e.Unit,e.PriceSatang,e.SportTypeId,s.Name,e.IsActive,e.ImageUrl
+            SELECT e.Id,e.Name,e.Unit,e.PriceSatang,e.SportTypeId,s.Name,e.IsActive,e.ImageUrl,COALESCE(stock.TotalQuantity,0),COALESCE(stock.RepairQuantity,0)
             FROM RentalEquipment e JOIN SportTypes s ON s.Id=e.SportTypeId
+            LEFT JOIN EquipmentStock stock ON stock.EquipmentId=e.Id
             WHERE ($sport IS NULL OR e.SportTypeId=$sport) AND ($all=1 OR e.IsActive=1)
             ORDER BY s.Id,e.Name,e.Id
             """, tx, ("$sport", sportTypeId), ("$all", includeInactive));
         using var r = cmd.ExecuteReader();
         var items = new List<RentalEquipment>();
-        while (r.Read()) items.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetInt64(3),r.GetInt64(4),r.GetString(5),r.GetInt32(6)==1,r.GetString(7)));
+        while (r.Read()) items.Add(new(r.GetString(0),r.GetString(1),r.GetString(2),r.GetInt64(3),r.GetInt64(4),r.GetString(5),r.GetInt32(6)==1,r.GetString(7),r.GetInt32(8),r.GetInt32(9)));
         return items;
     }
 
@@ -54,28 +55,35 @@ public partial class BookingStore
             .Select(e => new BookingEquipment(e.Id,e.Name,e.Unit,e.PriceSatang,quantities[e.Id])).ToArray();
     }
 
-    public bool SaveEquipment(EquipmentForm form)
+    public bool SaveEquipment(EquipmentForm form,long adminId)
     {
         if (string.IsNullOrWhiteSpace(form.Name) || form.Name.Trim().Length > 100
             || string.IsNullOrWhiteSpace(form.Unit) || form.Unit.Trim().Length > 30
-            || form.Price < 0.01m || form.Price > 100000m)
+            || form.Price < 0.01m || form.Price > 100000m || form.InitialStock is <0 or >1000000)
             throw new BookingRuleException("กรุณาระบุชื่อ หน่วยนับ และราคาอุปกรณ์ให้ถูกต้อง");
         if (!string.IsNullOrWhiteSpace(form.ImageUrl) && !(form.ImageUrl.StartsWith("/images/",StringComparison.Ordinal) && !form.ImageUrl.StartsWith("//",StringComparison.Ordinal))
             && !(Uri.TryCreate(form.ImageUrl,UriKind.Absolute,out var imageUri) && imageUri.Scheme == "https"))
             throw new BookingRuleException("รูปอุปกรณ์ต้องเป็น HTTPS หรือไฟล์ใน /images/");
         using var c = Open();
         using var tx = BeginWrite(c);
+        RequireAdmin(c,adminId,tx);
         using var sport = Cmd(c,"SELECT COUNT(*) FROM SportTypes WHERE Id=$sport",tx,("$sport",form.SportTypeId));
         if ((long)sport.ExecuteScalar()! == 0) throw new BookingRuleException("ไม่พบประเภทกีฬาที่เลือก");
         var isNew = string.IsNullOrEmpty(form.Id);
+        var equipmentId=isNew?Guid.NewGuid().ToString("N"):form.Id!;
         using var cmd = Cmd(c, isNew ? """
             INSERT INTO RentalEquipment(Id,SportTypeId,Name,Unit,PriceSatang,IsActive,ImageUrl)
             VALUES($id,$sport,$name,$unit,$price,$active,$imageUrl)
             """ : """
             UPDATE RentalEquipment SET ImageUrl=$imageUrl,SportTypeId=$sport,Name=$name,Unit=$unit,PriceSatang=$price,IsActive=$active WHERE Id=$id
-            """,tx,("$id",isNew ? Guid.NewGuid().ToString("N") : form.Id),("$sport",form.SportTypeId),
+            """,tx,("$id",equipmentId),("$sport",form.SportTypeId),
             ("$name",form.Name.Trim()),("$unit",form.Unit.Trim()),("$imageUrl",form.ImageUrl?.Trim()??""),("$price",Satang(form.Price)),("$active",form.IsActive));
         var saved = cmd.ExecuteNonQuery() == 1;
+        if(saved&&isNew)
+        {
+            using var stock=Cmd(c,"INSERT INTO EquipmentStock(EquipmentId,TotalQuantity) VALUES($equipment,$quantity)",tx,("$equipment",equipmentId),("$quantity",form.InitialStock));stock.ExecuteNonQuery();
+            InventoryMovement(c,tx,equipmentId,form.Name.Trim(),"Opening",adminId,"ตั้งจำนวนจากการตรวจนับเมื่อเพิ่มอุปกรณ์",totalDelta:form.InitialStock);
+        }
         tx.Commit();
         return saved;
     }

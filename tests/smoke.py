@@ -83,6 +83,24 @@ def check(condition, message):
     print("PASS:", message, flush=True)
 
 
+def legacy_payment(database,booking_id,image,reference=None):
+    """Restore a pre-wallet proof explicitly; retired customer endpoints cannot create one."""
+    import hashlib
+    reference=reference or 'SLIP-'+hashlib.sha256(image).hexdigest().upper()
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute('UPDATE Bookings SET PaymentSubmittedAt=?,TransferReference=?,SlipData=?,SlipContentType=? WHERE Id=?',
+                           (dt.datetime.now(dt.timezone.utc).isoformat(),reference,image,'image/png',booking_id))
+        connection.commit()
+
+
+def fund_and_pay(browser,booking_id,amount=10000):
+    """Use the enabled demo top-up in isolated tests, then pay via the real wallet endpoint."""
+    _,checkout,_=browser.post('/Wallet/StartDemoPayment',{'Amount':amount},token_page='/Wallet')
+    payment_id=checkout.rsplit('/',1)[1]
+    browser.post('/Wallet/CompleteDemoPayment',{'id':payment_id,'outcome':'Paid'},token_page=checkout)
+    return browser.post(f'/Bookings/PayWallet/{booking_id}',{},token_page=f'/Bookings/Result/{booking_id}')
+
+
 def run():
     assert DLL.exists(), "Run dotnet build first"
     with tempfile.TemporaryDirectory(prefix="courtbook-tests-") as temporary:
@@ -147,6 +165,8 @@ def run():
                 check(all(admin.request(p)[0]==404 for p in ["/Courts","/Bookings/Create","/Account/Register"]),"Admin port does not expose customer pages or registration")
                 check(admin.login("test@example.com")[1]=="/Account/Login","Admin login rejects customer accounts")
                 check(admin.login("admin@courtbook.local","CourtBook123!")[1]=="/Admin","Admin login succeeds")
+                for (equipment_id,) in query('SELECT Id FROM RentalEquipment'):
+                    admin.post('/Admin/EquipmentStock/'+equipment_id,{'TotalQuantity':50,'RepairQuantity':0,'Revision':0,'Note':'Counted test inventory fixture'})
                 shared=member.clone();shared.base=admin_base
                 check(shared.request("/Admin")[1]=="/Account/Login","Customer cookie cannot authenticate on admin port")
                 reverse=admin.clone();reverse.base=base
@@ -223,15 +243,16 @@ def run():
                     promo_booking=int(promo_result.rsplit("/",1)[1])
                     check(query("SELECT GrossSatang,DiscountSatang,NetSatang FROM Bookings WHERE Id=?",(promo_booking,))[0]==expected,f"Promotion {promo}: saved booking keeps exact totals")
                     pending_qr=promo_member.request(promo_result)[2]
-                    check("payment-qr.jpg" in pending_qr and pending_qr.index('id="qr-payment"')<pending_qr.index('booking-details'),f"Promotion {promo}: QR is visible above details immediately while approval is pending")
+                    check("payment-qr.jpg" not in pending_qr and 'id="wallet-payment"' in pending_qr,f"Promotion {promo}: wallet payment is available while approval is pending")
                     if promo==1:
                         pending_slip=base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5WQAAAAASUVORK5CYII=")
-                        check(promo_member.upload(f"/Bookings/SubmitPayment/{promo_booking}",{"TransferReference":"PENDING-TX"},pending_slip,file_field="Slip",token_page=promo_result)[1]==promo_result,"Pending booking can submit QR payment proof before approval")
+                        check(promo_member.upload(f"/Bookings/SubmitPayment/{promo_booking}",{"TransferReference":"PENDING-TX"},pending_slip,file_field="Slip",token_page=promo_result)[0]==404,"New booking transfers are retired")
+                        legacy_payment(db,promo_booking,pending_slip,'PENDING-TX')
                         check(query("SELECT Status,PaidAt,TransferReference FROM Bookings WHERE Id=?",(promo_booking,))[0]==("Pending",None,"PENDING-TX"),"Submitting proof does not approve booking or confirm funds")
                     promo_detail=f"/Admin/Booking/{promo_booking}"
                     admin.post(f"/Admin/ConfirmBooking/{promo_booking}",{},token_page=promo_detail)
                     qr_body=promo_member.request(promo_result)[2]
-                    check(("payment-qr.jpg" in qr_body if promo!=1 else "รอตรวจสอบการชำระเงิน" in html.unescape(qr_body)) and f"{expected[2]/100:,.2f}" in qr_body,f"Promotion {promo}: payment displays discounted saved amount and correct transfer state")
+                    check(('wallet-payment' in qr_body if promo!=1 else "รอตรวจสอบการชำระเงิน" in html.unescape(qr_body)) and f"{expected[2]/100:,.2f}" in qr_body,f"Promotion {promo}: wallet or historical proof displays the saved discounted amount")
                 check(member.quote(1,weekday,[11,12],3)[0]==400,"Morning promo rejects hours after noon")
                 check(member.quote(1,TODAY+dt.timedelta(days=6),[14],4)[0]==400,"Advance promo requires 7 calendar days")
                 check(member.quote(1,weekday,[9,10],2)[0]==400,"Consecutive promo requires 3 hours")
@@ -267,11 +288,12 @@ def run():
                 customer_detail=f"/Bookings/Result/{booking_id}"
                 with member.opener.open(base+"/images/payment-qr.jpg") as response:
                     check(response.read()==(ROOT/"wwwroot/images/payment-qr.jpg").read_bytes(),"QR is served unchanged from original image asset")
-                check(member.upload(submit_payment,{"TransferReference":"TX-510"},pending_image,csrf=False,file_field="Slip")[0]==400,"Payment submission requires CSRF")
+                check(member.upload(submit_payment,{"TransferReference":"TX-510"},pending_image,csrf=False,file_field="Slip")[0]==404,"Retired booking proof endpoint is unavailable")
                 for reference,slip in [("x"*201,pending_image),("TX-510",b"<svg/>")]:
                     member.upload(submit_payment,{"TransferReference":reference},slip,file_field="Slip",token_page=customer_detail)
                     check(query("SELECT PaymentSubmittedAt FROM Bookings WHERE Id=?",(booking_id,))[0][0] is None,"Invalid transfer reference or slip is rejected")
-                check(member.upload(submit_payment,{"TransferReference":"TX-510","NetSatang":1,"PaidAt":"forged"},pending_image,file_field="Slip",token_page=customer_detail)[1]==customer_detail,"Customer submits QR transfer proof")
+                check(member.upload(submit_payment,{"TransferReference":"TX-510","NetSatang":1,"PaidAt":"forged"},pending_image,file_field="Slip",token_page=customer_detail)[0]==404,"Customer cannot submit new direct transfer proof")
+                legacy_payment(db,booking_id,pending_image,'TX-510')
                 check(query("SELECT PaidAt,TransferReference,SlipData,NetSatang FROM Bookings WHERE Id=?",(booking_id,))[0]==(None,"TX-510",pending_image,51000),"Slip submission cannot mark payment confirmed or change amount")
                 for client,slip_route in [(member,f"/Bookings/PaymentSlip/{booking_id}"),(admin,f"/Admin/PaymentSlip/{booking_id}")]:
                     with client.opener.open(client.base+slip_route) as response:
@@ -374,12 +396,14 @@ def run():
                 cancel_race_id=int(race_path.rsplit("/",1)[1])
                 race_detail=f"/Admin/Booking/{cancel_race_id}"
                 admin.post(f"/Admin/ConfirmBooking/{cancel_race_id}",{},token_page=race_detail)
-                cancel_client=calendar_member.clone();pay_client=admin.clone()
+                fund_and_pay_target=calendar_member.post('/Wallet/StartDemoPayment',{'Amount':1000},token_page='/Wallet')[1]
+                calendar_member.post('/Wallet/CompleteDemoPayment',{'id':fund_and_pay_target.rsplit('/',1)[1],'outcome':'Paid'},token_page=fund_and_pay_target)
+                cancel_client=calendar_member.clone();pay_client=calendar_member.clone()
                 cancel_payload={"__RequestVerificationToken":cancel_client.token(race_path)}
-                pay_payload={"Reference":"RACE-CASH","__RequestVerificationToken":pay_client.token(race_detail)}
+                pay_payload={"__RequestVerificationToken":pay_client.token(race_path)}
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     cancellation_future=pool.submit(cancel_client.request,f"/Bookings/Cancel/{cancel_race_id}",cancel_payload)
-                    payment_future=pool.submit(pay_client.request,f"/Admin/ConfirmPayment/{cancel_race_id}",pay_payload)
+                    payment_future=pool.submit(pay_client.request,f"/Bookings/PayWallet/{cancel_race_id}",pay_payload)
                     check(cancellation_future.result()[0]==200 and payment_future.result()[0]==200,"Concurrent cancellation and payment are handled")
                 race_status,race_paid=query("SELECT Status,PaidAt FROM Bookings WHERE Id=?",(cancel_race_id,))[0]
                 race_slots=query("SELECT COUNT(*) FROM BookedSlots WHERE BookingId=?",(cancel_race_id,))[0][0]
@@ -446,7 +470,7 @@ def run():
                 check('name="Equipment[racket]"' not in member.request('/Bookings/Create?courtId=2')[2],"Tennis court hides badminton equipment")
                 status,_,_=member.request('/Bookings/Quote?'+urllib.parse.urlencode(foreign,doseq=True))
                 check(status==400 and member.post('/Bookings/Create',foreign)[1]=='/Bookings/Create',"Quote and booking reject equipment from another sport")
-                equipment_form={"Id":"","SportTypeId":sport_id,"Name":"ไม้เทนนิสทดสอบ","Unit":"อัน","Price":"65.50","IsActive":"true"}
+                equipment_form={"Id":"","SportTypeId":sport_id,"Name":"ไม้เทนนิสทดสอบ","Unit":"อัน","Price":"65.50","IsActive":"true","InitialStock":20}
                 check(admin.post('/Admin/EquipmentItem',equipment_form,token_page='/Admin/EquipmentItem')[1]=='/Admin/Equipment',"Admin creates sport-specific rental equipment")
                 equipment_id=query("SELECT Id FROM RentalEquipment WHERE Name=?",(equipment_form['Name'],))[0][0]
                 equipment_editor='/Admin/EquipmentItem?id='+equipment_id
@@ -509,6 +533,8 @@ def run():
                     connection.execute("ALTER TABLE Courts DROP COLUMN SportTypeId")
                     for column in ["ImageData","ImageContentType","ImageVersion"]:
                         connection.execute(f"ALTER TABLE Courts DROP COLUMN {column}")
+                    for table in ['EquipmentMovements','EquipmentLoans','EquipmentStock']:
+                        connection.execute('DROP TABLE '+table)
                     connection.execute("DROP TABLE RentalEquipment")
                     connection.execute("DROP TABLE SportTypes")
                     connection.execute("UPDATE Bookings SET Status='Confirmed'")

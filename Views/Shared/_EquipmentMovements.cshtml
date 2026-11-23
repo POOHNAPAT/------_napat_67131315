@@ -1,0 +1,10 @@
+@model IReadOnlyList<EquipmentMovement>
+@{var admin=Context.Items["AdminPortal"] is true;}
+@if(Model.Count==0){<p class="empty">ยังไม่มีการบันทึกความเคลื่อนไหว</p>}else{
+<ol class="inventory-movements">@foreach(var movement in Model){<li><div class="section-heading"><strong>@movement.EquipmentName · @movement.KindLabel</strong><small>@DateTimeOffset.Parse(movement.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น.</small></div>
+@if(movement.BookingId.HasValue){<p><a asp-controller="@(admin?"Admin":"Bookings")" asp-action="EquipmentHandover" asp-route-id="@movement.BookingId">CB@(movement.BookingId.Value.ToString("000000"))</a></p>}
+@if(movement.Kind=="Issue"){<p>ส่งมอบ @movement.Quantity</p>}else if(movement.Kind=="Return"){<p>รับคืนปกติ @movement.GoodQuantity · รับคืนชำรุด @movement.DamagedQuantity</p>}else{<p>เปลี่ยนจำนวนทั้งหมด @(movement.TotalDelta.ToString("+0;-0;0")) · เปลี่ยนจำนวนรอซ่อม @(movement.RepairDelta.ToString("+0;-0;0"))</p>}
+<p class="inventory-note">@movement.Note</p><small>ผู้บันทึก @movement.ActorName</small>
+@if(movement.HasImage){<p><a asp-controller="@(admin?"Admin":"Bookings")" asp-action="EquipmentMovementImage" asp-route-id="@movement.Id" target="_blank" rel="noopener"><img class="inventory-proof" src="@Url.Action("EquipmentMovementImage",admin?"Admin":"Bookings",new{id=movement.Id})" alt="สภาพอุปกรณ์ขณะ@movement.KindLabel" loading="lazy"/></a></p>}
+@if(movement.DamageReportId.HasValue){<p><a asp-controller="@(admin?"Admin":"Bookings")" asp-action="@(admin?"DamageReports":"ReportDamage")" asp-fragment="@("report-"+movement.DamageReportId)">ดูรายงานความเสียหาย DM@(movement.DamageReportId.Value.ToString("000000"))</a></p>}
+</li>}</ol>}

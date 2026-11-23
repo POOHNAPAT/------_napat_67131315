@@ -4,8 +4,9 @@ namespace CourtBook.Models;
 
 public class TopUpForm : PaymentSubmissionForm
 {
-    [Range(typeof(decimal), "1", "100000", ErrorMessage = "เติมเงินได้ครั้งละ 1–100,000 บาท")]
+    [Range(typeof(decimal), "0.01", "100000", ErrorMessage = "เติมเงินได้ครั้งละ 0.01–100,000 บาท")]
     public decimal Amount { get; set; }
+    public string CheckoutPath { get; set; } = "";
 }
 
 public class PlanForm
@@ -26,12 +27,19 @@ public record Membership(long Id, string PlanId, string Name, DateOnly Starts, D
 public record QuotaBalance(DateOnly Starts,DateOnly Ends,int TotalHours,int UsedHours){public int RemainingHours=>Math.Max(0,TotalHours-UsedHours);}
 public record WalletEntry(long Id, long AmountSatang, string Description, string CreatedAt);
 public record TopUp(long Id, long UserId, string MemberName, long AmountSatang, string TransferReference,
-    string Status, string CreatedAt, string ReviewNote)
+    string Status, string CreatedAt, string ReviewNote,string CheckoutPath="")
 {
     public string StatusLabel => Status switch { "Approved" => "เติมเงินสำเร็จ", "Rejected" => "ไม่อนุมัติ", _ => "รอตรวจสอบ" };
 }
 public record WalletPage(long BalanceSatang, IReadOnlyList<WalletEntry> Entries, IReadOnlyList<TopUp> TopUps,
     IReadOnlyList<MembershipPlan> Plans, Membership? Membership);
+
+public record WalletCheckout(long? BookingId,string? PlanId,long? DamageId,string Title,string ReturnUrl,long RequiredSatang)
+{
+    public long MissingSatang(long balance)=>Math.Max(0,RequiredSatang-balance);
+    public decimal SuggestedAmount(long balance)=>Math.Min(100000m,MissingSatang(balance)/100m);
+    public static bool SafePath(string path)=>System.Text.RegularExpressions.Regex.IsMatch(path,@"^(/Bookings/Result/[0-9]+|/Home/Membership|/Bookings/ReportDamage#report-[0-9]+)$");
+}
 
 public class DemoTopUpForm
 {
@@ -61,6 +69,6 @@ public record ReceiptSnapshot(string Kind,string MemberName,string MemberEmail,s
     string PlanName="",DateOnly? Starts=null,DateOnly? Ends=null,int DiscountPercent=0,int MonthlyHours=0,string QuotaSportName="",int IncludedHours=0);
 public record PaymentReceipt(string Id,long? BookingId,long? MembershipId,ReceiptSnapshot Data,string CreatedAt,Booking? Booking=null,BookingRefund? Refund=null)
 {
-    public string Title=>Data.Kind=="Booking"&&Data.NetSatang==0&&Data.IncludedHours>0?"หลักฐานใช้สิทธิ์แพ็กสนาม":Data.Kind=="Booking"?"ใบเสร็จค่าจองสนาม":"ใบเสร็จซื้อแพ็กสมาชิก";
+    public string Title=>Data.Kind=="Damage"?"ใบเสร็จค่าซ่อม / ค่าเสียหาย":Data.Kind=="Booking"&&Data.NetSatang==0&&Data.IncludedHours>0?"หลักฐานใช้สิทธิ์แพ็กสนาม":Data.Kind=="Booking"?"ใบเสร็จค่าจองสนาม":"ใบเสร็จซื้อแพ็กสมาชิก";
     public string EntryStatus=>Booking is null?"":Booking.ApprovalStatus=="Cancelled"?"ยกเลิกการจองแล้ว":Booking.ApprovalStatus=="Pending"?"รอผู้ดูแลยืนยันการจอง":Booking.Status=="Completed"?"พ้นช่วงเวลาใช้งานแล้ว":Data.IncludedHours>0&&Data.NetSatang==0?"ใช้สิทธิ์แพ็กและยืนยันการจองแล้ว":"ชำระเงินและยืนยันการจองแล้ว";
 }

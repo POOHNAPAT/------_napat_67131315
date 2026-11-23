@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CourtBook.Controllers;
 
 [Authorize(Roles = "Admin")]
-public class AdminController(BookingStore store) : Controller
+public partial class AdminController(BookingStore store) : Controller
 {
     [HttpGet] public IActionResult Equipment() => View(store.Equipment(includeInactive: true));
     [HttpGet]
@@ -28,7 +28,7 @@ public class AdminController(BookingStore store) : Controller
         {
             try
             {
-                if (!store.SaveEquipment(form)) return NotFound();
+                if (!store.SaveEquipment(form,AdminId)) return NotFound();
                 TempData["Success"] = "บันทึกอุปกรณ์เรียบร้อยแล้ว รายการจองเดิมยังคงชื่อและราคาเดิม";
                 return RedirectToAction(nameof(Equipment));
             }
@@ -39,7 +39,7 @@ public class AdminController(BookingStore store) : Controller
     [HttpGet]
     public IActionResult DamageReports(string? status)
     {
-        if(!string.IsNullOrEmpty(status)&&!DamageReport.Statuses.Contains(status))return BadRequest();
+        if(!string.IsNullOrEmpty(status)&&!DamageReport.Statuses.Concat(DamageClaim.Statuses).Contains(status))return BadRequest();
         return View(new DamageReportListPage(store.DamageReports(status:status),status));
     }
     [HttpPost]
@@ -53,6 +53,23 @@ public class AdminController(BookingStore store) : Controller
         }
         catch(BookingRuleException ex){TempData["Error"]=ex.Message;}
         return RedirectToAction(nameof(DamageReports));
+    }
+    [HttpGet]
+    public IActionResult ReportDamage(long id)
+    {
+        var booking=store.Bookings().SingleOrDefault(b=>b.Id==id);
+        return booking is null?NotFound():View(new AdminDamageReportPage(booking,new DamageReportForm()));
+    }
+    [HttpPost,RequestSizeLimit(6*1024*1024)]
+    public IActionResult ReportDamage(long id,DamageReportForm form)
+    {
+        var booking=store.Bookings().SingleOrDefault(b=>b.Id==id);if(booking is null)return NotFound();
+        if(ModelState.IsValid)
+        {
+            try{store.ReportDamage(booking.UserId,id,form,AdminId);TempData["Success"]="เปิดรายงานแล้ว แนบหลักฐานและตรวจสอบค่าซ่อมได้ในหน้านี้";return RedirectToAction(nameof(DamageReports));}
+            catch(BookingRuleException ex){ModelState.AddModelError("",ex.Message);}
+        }
+        return View(new AdminDamageReportPage(booking,form));
     }
     [HttpGet]
     public IActionResult Receipt(string id)
@@ -199,7 +216,7 @@ public class AdminController(BookingStore store) : Controller
         try
         {
             if (!store.ConfirmPayment(id, AdminId, form.Reference))
-                ModelState.AddModelError("", "ต้องยืนยันการจองก่อน และรายการนี้ต้องยังไม่ได้ยืนยันชำระเงิน");
+                ModelState.AddModelError("", "ยืนยันได้เฉพาะหลักฐานโอนเดิมของการจองที่ยืนยันแล้วและยังไม่ชำระ รายการใหม่ให้ลูกค้าชำระจากกระเป๋าเงิน");
         }
         catch (BookingRuleException ex) { ModelState.AddModelError("", ex.Message); }
         if (!ModelState.IsValid) return View("Booking", booking);
@@ -218,7 +235,7 @@ public class AdminController(BookingStore store) : Controller
         ViewBag.SportTypes = store.SportTypes();
         if (id == 0) return View(new CourtForm());
         var court = store.FindCourt(id);
-        return court is null ? NotFound() : View(new CourtForm { Id=court.Id,Name=court.Name,Location=court.Location,Description=court.Description,Price=court.PriceSatang/100m,IsActive=court.IsActive,SportTypeId=court.SportTypeId,CurrentImageUrl=court.ImageUrl });
+        return court is null ? NotFound() : View(new CourtForm { Id=court.Id,Name=court.Name,Description=court.Description,Price=court.PriceSatang/100m,IsActive=court.IsActive,SportTypeId=court.SportTypeId,CurrentImageUrl=court.ImageUrl });
     }
     [HttpPost]
     [RequestSizeLimit(6 * 1024 * 1024)]

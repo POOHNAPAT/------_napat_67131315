@@ -84,7 +84,7 @@ app.Use(async (context, next) =>
     }
     var accountPage = controller == "Account" && action is "Login" or "Logout" or "Denied" or "Profile" or "EditProfile" or "ForgotPassword" or "ResetPassword";
     if ((!admin && controller == "Admin") || (admin && controller != "Admin" && !accountPage
-        && !(controller == "Home" && action == "Error") && !(controller == "Courts" && action == "Image") && context.Request.Path!="/healthz"))
+        && controller != "Damage" && !(controller == "Home" && action == "Error") && !(controller == "Courts" && action == "Image") && context.Request.Path!="/healthz"))
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return;

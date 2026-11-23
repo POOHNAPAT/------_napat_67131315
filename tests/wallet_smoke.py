@@ -12,7 +12,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from smoke import Browser, DLL, PASSWORD, ROOT, TODAY, check
+from smoke import Browser, DLL, PASSWORD, ROOT, TODAY, check, legacy_payment
 
 
 def run():
@@ -121,7 +121,8 @@ def run():
                 # A booking slip cannot be submitted as a top-up, and vice versa.
                 unpaid = booking2 if paid==booking1 else booking1
                 response=member.upload(f'/Bookings/SubmitPayment/{unpaid}',{'TransferReference':'BOOKING-X'},png+b'booking',file_field='Slip',token_page=f'/Bookings/Result/{unpaid}')
-                assert response[0]==200
+                assert response[0]==404
+                legacy_payment(db,unpaid,png+b'booking','BOOKING-X')
                 topup(member,'100','BOOKING-X',png+b'another')
                 topup(member,'100','OTHER-REF',png+b'booking')
                 check(sql('SELECT COUNT(*) FROM TopUps')[0][0]==2,'Booking references and slips cannot become top-up credit')
@@ -199,7 +200,8 @@ def run():
                 result=f'/Bookings/Result/{unpaid}'
                 check('name="TransferReference"' not in member.request(result)[2] and 'name="TransferReference"' not in member.request('/Wallet')[2],'Booking and wallet forms omit the transfer reference input')
                 member.upload(f'/Bookings/SubmitPayment/{unpaid}',{},png+b'no-reference-booking',file_field='Slip',token_page=result)
-                check(sql('SELECT SlipData,PaidAt FROM Bookings WHERE Id=?',(unpaid,))[0]==(png+b'no-reference-booking',None),'Booking accepts a slip without a transfer reference and still requires review')
+                legacy_payment(db,unpaid,png+b'no-reference-booking')
+                check(sql('SELECT SlipData,PaidAt FROM Bookings WHERE Id=?',(unpaid,))[0]==(png+b'no-reference-booking',None),'Historical proof without a bank reference is preserved for review')
                 count=sql('SELECT COUNT(*) FROM TopUps')[0][0]
                 for suffix in [b'no-ref-one',b'no-ref-two',b'no-ref-one',b'no-reference-booking']:
                     member.upload('/Wallet/TopUp',{'Amount':'10'},png+suffix,file_field='Slip',token_page='/Wallet')

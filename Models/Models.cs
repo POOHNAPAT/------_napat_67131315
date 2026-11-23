@@ -58,7 +58,6 @@ public class Court
 
 public class CourtForm
 {
-    [StringLength(200)] public string? Location { get; set; }
     public IFormFile? Image { get; set; }
     public bool RemoveImage { get; set; }
     [Microsoft.AspNetCore.Mvc.ModelBinding.BindNever] public string? CurrentImageUrl { get; set; }
@@ -131,13 +130,14 @@ public class BookingForm
     public long? PromotionId { get; set; }
     public Dictionary<string, int> Equipment { get; set; } = [];
 }
-public record RentalEquipment(string Id, string Name, string Unit, long PriceSatang, long SportTypeId, string SportTypeName, bool IsActive, string ImageUrl = "");
+public record RentalEquipment(string Id, string Name, string Unit, long PriceSatang, long SportTypeId, string SportTypeName, bool IsActive, string ImageUrl = "",int StockQuantity=0,int RepairQuantity=0);
 public record BookingEquipment(string Id, string Name, string Unit, long PriceSatang, int Quantity)
 {
     public long TotalSatang => PriceSatang * Quantity;
 }
 public class EquipmentForm
 {
+    [Range(0,1000000)] public int InitialStock { get; set; }
     [StringLength(500)] public string? ImageUrl { get; set; }
     public string? Id { get; set; } = "";
     [Range(1, long.MaxValue, ErrorMessage = "กรุณาเลือกประเภทกีฬา")] public long SportTypeId { get; set; } = 1;
@@ -252,6 +252,7 @@ public class ResetPasswordForm
 
 public class DamageReportForm
 {
+    public IFormFile? Evidence { get; set; }
     [StringLength(200)] public string? Subject { get; set; }
     [Required, RegularExpression("^(Court|Equipment|Other)$", ErrorMessage="กรุณาเลือกประเภทปัญหา")] public string Category { get; set; } = "Court";
     public string? EquipmentId { get; set; }
@@ -265,6 +266,10 @@ public class DamageReportUpdate
 public record DamageReport(long Id,long? BookingId,string Subject,DateOnly? PlayDate,string MemberName,string MemberEmail,
     string Category,string EquipmentName,string Description,string Status,string CreatedAt,string? UpdatedAt,string AdminNote,string UpdatedByName)
 {
+    public DamageClaim? Claim { get; init; }
+    public IReadOnlyList<DamageEvidence> Evidence { get; init; } = [];
+    public IReadOnlyList<DamageClaimEvent> Events { get; init; } = [];
+    public string DisplayStatus => Claim?.Status ?? Status;
     public static readonly string[] Statuses=["Reported","InProgress","Resolved"];
     public static string Label(string status)=>status switch{"Reported"=>"รอตรวจสอบ","InProgress"=>"กำลังดำเนินการ","Resolved"=>"แก้ไขแล้ว",_=>status};
     public string TargetLabel=>Category=="Court"?"สนาม · "+Subject:Category=="Equipment"?"อุปกรณ์ · "+EquipmentName:"ปัญหาทั่วไป · "+Subject;

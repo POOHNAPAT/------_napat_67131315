@@ -72,7 +72,11 @@ public partial class BookingStore
 
     public IReadOnlyList<PaymentReceipt> Receipts(long userId)
     {
-        using var c=Open();using var cmd=Cmd(c,"SELECT Id,BookingId,MembershipId,SnapshotJson,CreatedAt FROM PaymentReceipts WHERE UserId=$user ORDER BY CreatedAt DESC,Id DESC",null,("$user",userId));
+        using var c=Open();using var cmd=Cmd(c,"""
+            SELECT Id,BookingId,MembershipId,SnapshotJson,CreatedAt FROM PaymentReceipts WHERE UserId=$user
+            UNION ALL SELECT Id,NULL,NULL,SnapshotJson,CreatedAt FROM DamageReceipts WHERE UserId=$user
+            ORDER BY CreatedAt DESC,Id DESC
+            """,null,("$user",userId));
         using var r=cmd.ExecuteReader();var rows=new List<PaymentReceipt>();
         while(r.Read())rows.Add(new(r.GetString(0),r.IsDBNull(1)?null:r.GetInt64(1),r.IsDBNull(2)?null:r.GetInt64(2),JsonSerializer.Deserialize<ReceiptSnapshot>(r.GetString(3))!,r.GetString(4)));
         return rows;
@@ -80,6 +84,14 @@ public partial class BookingStore
 
     public PaymentReceipt? FindReceipt(string id,long? userId)
     {
+        if(id.StartsWith("RC-DM-",StringComparison.Ordinal))
+        {
+            using var damageConnection=Open();using var damage=Cmd(damageConnection,"""
+                SELECT r.SnapshotJson,r.CreatedAt FROM DamageReceipts r JOIN DamageClaims dc ON dc.ReportId=r.ReportId
+                WHERE r.Id=$id AND ($user IS NULL OR r.UserId=$user) AND dc.Status='Paid'
+                """,null,("$id",id),("$user",userId));using var row=damage.ExecuteReader();
+            return row.Read()?new(id,null,null,JsonSerializer.Deserialize<ReceiptSnapshot>(row.GetString(0))!,row.GetString(1)):null;
+        }
         using var c=Open();using var cmd=Cmd(c,"""
             SELECT p.Id,p.BookingId,p.MembershipId,p.SnapshotJson,p.CreatedAt
             FROM PaymentReceipts p WHERE p.Id=$id AND ($user IS NULL OR p.UserId=$user)

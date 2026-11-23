@@ -87,6 +87,7 @@ def run():
                 active=sql("SELECT Id FROM Bookings WHERE Status<>'Cancelled'")[0][0]
                 member.post(f'/Bookings/Cancel/{active}',{},token_page=f'/Bookings/Result/{active}')
                 equipment=sql('SELECT Id FROM RentalEquipment WHERE SportTypeId=? LIMIT 1',(sport,))[0][0]
+                admin.post('/Admin/EquipmentStock/'+equipment,{'TotalQuantity':50,'RepairQuantity':0,'Revision':0,'Note':'Counted quota test inventory'})
                 _,path,_=book(member,[12],**{f'Equipment[{equipment}]':1});mixed=int(path.rsplit('/',1)[1])
                 amount=sql('SELECT NetSatang FROM Bookings WHERE Id=?',(mixed,))[0][0]
                 check(amount>0 and sql('SELECT Hours FROM MembershipQuotaUses WHERE BookingId=?',(mixed,))[0][0]==1,'Equipment is charged separately from included hours')

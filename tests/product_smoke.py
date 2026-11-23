@@ -14,7 +14,7 @@ import subprocess
 import tempfile
 import time
 import urllib.parse
-from smoke import Browser, PASSWORD, ROOT, DLL, TODAY, check
+from smoke import Browser, PASSWORD, ROOT, DLL, TODAY, check, fund_and_pay
 
 
 def port():
@@ -68,12 +68,14 @@ def run():
                 admin.post('/Admin/SportTypes',{'Name':'Football'})
                 sport_id=query("SELECT Id FROM SportTypes WHERE Name='Football'")[0][0]
                 check(query('SELECT COUNT(*) FROM RentalEquipment WHERE SportTypeId=?',(sport_id,))[0][0]==2,'New football sport receives matching editable rental defaults')
-                football={'Id':0,'Name':'Football Arena','Location':'Bangkok','Description':'Test venue','Price':500,'SportTypeId':sport_id,'IsActive':'true'}
-                check(admin.post('/Admin/Court/0',football)[1]=='/Admin/Courts','Admin creates a venue with its real location')
+                football={'Id':0,'Name':'Football Arena','Description':'Test venue','Price':500,'SportTypeId':sport_id,'IsActive':'true'}
+                check(admin.post('/Admin/Court/0',football)[1]=='/Admin/Courts','Admin creates a court without a location field')
                 court_id=query("SELECT Id FROM Courts WHERE Name='Football Arena'")[0][0]
-                page=customer.request(f'/Courts?sportTypeId={sport_id}&location=Bangkok')[2]
-                check('Football Arena' in page and '/Courts/Details/1' not in page,'Sport and location filters restrict the schedule')
-                check('Football Arena' not in customer.request('/Courts?location=Unknown')[2].split('data-server-now=')[-1],'Unknown location produces no matching schedule')
+                page=customer.request(f'/Courts?sportTypeId={sport_id}')[2]
+                check('Football Arena' in page and '/Courts/Details/1' not in page,'Sport filter restricts the schedule')
+                check('name="location"' not in page, 'Schedule omits location filter')
+                check('Football Arena' in customer.request(f'/Courts?sportTypeId={sport_id}&location=Unknown')[2], 'Legacy location query does not hide courts')
+                check('name="Location"' not in admin.request(f'/Admin/Court/{court_id}')[2], 'Court editor omits location field')
                 check('0.0' not in html.unescape(customer.request(f'/Courts/Details/{court_id}')[2]).split('class="help"')[-1],'No synthetic review score is created')
                 date=TODAY+dt.timedelta(days=5)
                 group={'Id':0,'Name':'Group discount','Rule':'Group','Kind':'Percent','Value':10,'MinHours':1,'MinDays':1,'MinSpend':1,'MinPlayers':4,'Starts':str(TODAY),'Ends':str(TODAY+dt.timedelta(days=365)),'IsActive':'true'}
@@ -84,6 +86,7 @@ def run():
                     status,_,body=customer.request('/Bookings/Quote?'+urllib.parse.urlencode(values,doseq=True));return status,json.loads(body)
                 check(quote(fields)[0]==400,'Group promotion rejects too few players')
                 equipment_id=query('SELECT Id FROM RentalEquipment WHERE SportTypeId=? AND Name=?',(sport_id,'ลูกฟุตบอล'))[0][0]
+                admin.post('/Admin/EquipmentStock/'+equipment_id,{'TotalQuantity':50,'RepairQuantity':0,'Revision':0,'Note':'Counted football test inventory'})
                 fields={**fields,'Players':4,f'Equipment[{equipment_id}]':1}
                 status,data=quote(fields)
                 check(status==200 and (data['grossSatang'],data['discountSatang'],data['netSatang'])==(105000,10000,95000),'Group discount applies only to court cost and adds equipment')
@@ -140,7 +143,7 @@ def run():
                 booking_receipt=f'/Receipts/Details/RC-BK-{booking_id:06d}'
                 check(customer.request(booking_receipt)[0]==404,'Unpaid booking has no receipt')
                 admin.post(f'/Admin/ConfirmBooking/{booking_id}',{},token_page=f'/Admin/Booking/{booking_id}')
-                admin.post(f'/Admin/ConfirmPayment/{booking_id}',{'Reference':'PRODUCT-PAID'},token_page=f'/Admin/Booking/{booking_id}')
+                fund_and_pay(customer,booking_id)
                 check(customer.request(booking_receipt)[0]==200 and 'RC-BK-' in customer.request(booking_path)[2],'Settled booking automatically exposes its receipt')
                 check(other.request(booking_receipt+'?userId='+str(user_id))[0]==404,'Other customers cannot access a receipt with a forged owner query')
                 receipt_id=f'RC-BK-{booking_id:06d}'

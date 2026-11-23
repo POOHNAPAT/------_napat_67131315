@@ -1,0 +1,10 @@
+@model AdminDamageReportPage
+@{ViewData["Title"]="เปิดรายงานความเสียหาย";}
+<div class="page-heading"><h1>เปิดรายงานความเสียหาย</h1><p>@Model.Booking.Reference · @Model.Booking.CourtName · @Model.Booking.MemberName</p></div>
+<section class="panel"><p class="help">บันทึกสิ่งที่ตรวจพบก่อนประเมินความรับผิด ลูกค้าจะเห็นรายงานและหลักฐานในบัญชีของตนเอง</p>
+<form asp-action="ReportDamage" asp-route-id="@Model.Booking.Id" method="post" enctype="multipart/form-data"><div asp-validation-summary="All" class="validation" role="alert"></div>
+<label for="admin-damage-category">ประเภทความเสียหาย</label><select id="admin-damage-category" name="Category"><option value="Court" selected="@(Model.Form.Category=="Court")">สนาม / สิ่งอำนวยความสะดวก</option><option value="Equipment" selected="@(Model.Form.Category=="Equipment")" disabled="@(Model.Booking.Equipment.Count==0)">อุปกรณ์ที่เช่า</option></select>
+<label for="admin-damage-equipment">อุปกรณ์ (เมื่อเลือกความเสียหายของอุปกรณ์)</label><select id="admin-damage-equipment" name="EquipmentId"><option value="">เลือกอุปกรณ์</option>@foreach(var item in Model.Booking.Equipment){<option value="@item.Id" selected="@(Model.Form.EquipmentId==item.Id)">@item.Name</option>}</select>
+<label for="admin-damage-description">รายละเอียดที่ตรวจพบ</label><textarea id="admin-damage-description" name="Description" rows="5" minlength="5" maxlength="2000" required>@Model.Form.Description</textarea>
+<label for="admin-damage-evidence">รูปสภาพหลังใช้งาน (ไม่บังคับ)</label><input id="admin-damage-evidence" name="Evidence" type="file" accept="image/jpeg,image/png,image/webp"/><p class="help">ไม่เกิน 5 MB เพิ่มรูปก่อนใช้งานและใบเสนอราคาในหน้ารายงานได้</p>
+<button class="button" type="submit">เปิดรายงาน</button> <a asp-action="Booking" asp-route-id="@Model.Booking.Id">กลับรายการจอง</a></form></section>

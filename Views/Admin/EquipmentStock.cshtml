@@ -1,0 +1,10 @@
+@model EquipmentStockPage
+@{ViewData["Title"]="ปรับสต็อก · "+Model.Item.Equipment.Name;var stock=Model.Item;}
+<div class="page-heading"><h1>@stock.Equipment.Name</h1><p>ตรวจนับสต็อกและบันทึกอุปกรณ์ที่กลับจากซ่อม</p><a asp-action="Inventory">กลับสต็อกและรับ–คืน</a></div>
+@if(stock.ShortageQuantity>0){<p class="alert error" role="alert">จำนวนพร้อมใช้ไม่พอกับการจอง / ค้างคืนสูงสุด @stock.ShortageQuantity @stock.Equipment.Unit กรุณาจัดหาอุปกรณ์เพิ่มหรือติดต่อจัดการรายการจองที่เกี่ยวข้อง</p>}
+<section class="panel wide-form"><h2>ปรับจำนวนจากการตรวจนับ</h2><p>ลูกค้าถืออยู่ @stock.IssuedQuantity @stock.Equipment.Unit · เกินกำหนดคืน @stock.OverdueQuantity @stock.Equipment.Unit · จอง / ค้างคืนสูงสุด @stock.PeakReserved @stock.Equipment.Unit</p>
+<form method="post" asp-action="EquipmentStock" asp-route-id="@stock.Equipment.Id"><input type="hidden" name="Revision" value="@stock.Revision"/>
+<div class="form-grid"><div><label for="stock-total">จำนวนทั้งหมด (@stock.Equipment.Unit)</label><input id="stock-total" name="TotalQuantity" type="number" min="0" max="1000000" step="1" value="@stock.TotalQuantity" required/></div><div><label for="stock-repair">จำนวนชำรุด / รอซ่อม (@stock.Equipment.Unit)</label><input id="stock-repair" name="RepairQuantity" type="number" min="0" max="1000000" step="1" value="@stock.RepairQuantity" required/></div></div>
+<p class="help">จำนวนทั้งหมดรวมของในคลัง ของที่ลูกค้าถืออยู่ และของรอซ่อม เมื่อซ่อมเสร็จให้ลดเฉพาะจำนวนรอซ่อม หากเพิ่มอุปกรณ์ให้เพิ่มจำนวนทั้งหมด</p>
+<label for="stock-note">เหตุผล / ผลตรวจนับ</label><textarea id="stock-note" name="Note" rows="4" minlength="5" maxlength="1000" required placeholder="เช่น ตรวจนับอุปกรณ์ หรือรับกลับจากซ่อมแล้ว 2 อัน"></textarea><button class="button" type="submit">บันทึกจำนวนและประวัติ</button></form></section>
+<section class="panel inventory-section"><h2>ประวัติสต็อกและรับ–คืน</h2><partial name="_EquipmentMovements" model="Model.Movements"/></section>

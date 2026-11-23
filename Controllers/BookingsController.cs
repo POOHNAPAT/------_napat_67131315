@@ -28,6 +28,25 @@ public class BookingsController(BookingStore store) : Controller
         try { return Json(store.Preview(UserId, form)); }
         catch (BookingRuleException ex) { return BadRequest(new { error = ex.Message }); }
     }
+    [HttpGet]
+    public IActionResult EquipmentAvailability(long courtId,DateOnly date,int[] hours)
+    {
+        if(!ModelState.IsValid)return BadRequest(new {error="วันหรือเวลาที่เลือกไม่ถูกต้อง"});
+        try{return Json(store.EquipmentAvailability(courtId,date,hours));}
+        catch(BookingRuleException ex){return BadRequest(new {error=ex.Message});}
+    }
+    [HttpGet,Authorize(Roles="Member")]
+    public IActionResult EquipmentHandover(long id)
+    {
+        Response.Headers["Cache-Control"]="no-store";
+        var page=store.EquipmentHandover(id,UserId);return page is null?NotFound():View("EquipmentHandover",page);
+    }
+    [HttpGet,Authorize(Roles="Member")]
+    public IActionResult EquipmentMovementImage(long id)
+    {
+        var image=store.EquipmentMovementImage(id,UserId);if(image is null)return NotFound();
+        Response.Headers["Cache-Control"]="no-store";Response.Headers["X-Content-Type-Options"]="nosniff";return File(image.Data,image.ContentType);
+    }
     [HttpPost]
     public IActionResult Create(BookingForm form)
     {
@@ -53,22 +72,6 @@ public class BookingsController(BookingStore store) : Controller
         var booking = store.Bookings(UserId).SingleOrDefault(b => b.Id == id);
         ViewBag.WalletBalance = store.WalletBalance(UserId);
         return booking is null ? NotFound() : View(booking);
-    }
-    [HttpPost, RequestSizeLimit(6 * 1024 * 1024)]
-    public IActionResult SubmitPayment(long id, PaymentSubmissionForm form)
-    {
-        var booking = store.Bookings(UserId).SingleOrDefault(b => b.Id == id);
-        if (booking is null) return NotFound();
-        if (!ModelState.IsValid) return View("Result", booking);
-        try
-        {
-            if (!store.SubmitPayment(id, UserId, form))
-                ModelState.AddModelError("", "แจ้งโอนได้เฉพาะรายการที่ยังไม่ถูกยกเลิก มียอดชำระ และยังไม่ได้ยืนยันรับเงิน");
-        }
-        catch (BookingRuleException ex) { ModelState.AddModelError("", ex.Message); }
-        if (!ModelState.IsValid) return View("Result", booking);
-        TempData["Success"] = "ส่งหลักฐานโอนแล้ว รอผู้ดูแลตรวจสอบยอดและยืนยันรับเงิน กรุณาอย่าโอนซ้ำ";
-        return RedirectToAction(nameof(Result), new { id });
     }
     [HttpGet]
     public IActionResult PaymentSlip(long id)
@@ -97,7 +100,7 @@ public class BookingsController(BookingStore store) : Controller
         if(id.HasValue&&booking is null)return NotFound();
         return View(new DamageReportPage(booking,new DamageReportForm{Category=id.HasValue?"Court":"Other"},store.DamageReports(UserId,id)));
     }
-    [HttpPost,Authorize(Roles="Member")]
+    [HttpPost,Authorize(Roles="Member"),RequestSizeLimit(6*1024*1024)]
     public IActionResult ReportDamage(long? id,DamageReportForm form)
     {
         var booking=id.HasValue?store.Bookings(UserId).SingleOrDefault(b=>b.Id==id):null;

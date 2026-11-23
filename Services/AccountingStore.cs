@@ -44,6 +44,12 @@ public partial class BookingStore
             var data=JsonSerializer.Deserialize<ReceiptSnapshot>(r.GetString(1))!;
             entries.Add(new(data.SourceReference,data.PaidAt,data.Kind,data.Kind=="Booking"?data.CourtName:data.PlanName,data.MemberName,data.NetSatang,"Paid",r.GetInt32(2)==1?"Wallet":"External",r.GetString(0)));
         }
+        using(var cmd=Cmd(c,"SELECT Id,SnapshotJson FROM DamageReceipts WHERE ($user IS NULL OR UserId=$user)",null,("$user",userId)))
+        using(var r=cmd.ExecuteReader())while(r.Read())
+        {
+            var data=JsonSerializer.Deserialize<ReceiptSnapshot>(r.GetString(1))!;
+            entries.Add(new(data.SourceReference,data.PaidAt,"Damage","ค่าซ่อม "+data.CourtName,data.MemberName,data.NetSatang,"Paid","Wallet",r.GetString(0)));
+        }
         using(var cmd=Cmd(c,"""
             SELECT t.Id,t.ReviewedAt,u.Name,t.AmountSatang FROM TopUps t JOIN Users u ON u.Id=t.UserId
             WHERE t.Status='Approved' AND t.ReviewedAt IS NOT NULL AND ($user IS NULL OR t.UserId=$user)
@@ -140,6 +146,7 @@ public partial class BookingStore
         r.Close();var now=DateTime.UtcNow.ToString("O");long? entryId=null;
         if(approve)
         {
+            EnsureEquipmentReturned(c,tx,bookingId);
             using var credit=Cmd(c,"INSERT INTO WalletEntries(UserId,AmountSatang,Description,CreatedAt) VALUES($user,$amount,$description,$now) RETURNING Id",tx,
                 ("$user",user),("$amount",amount),("$description",$"คืนค่าจอง RF{id:000000} (CB{bookingId:000000})"),("$now",now));entryId=(long)credit.ExecuteScalar()!;
             using var cancel=Cmd(c,"UPDATE Bookings SET Status='Cancelled',CancelledAt=$now WHERE Id=$id",tx,("$id",bookingId),("$now",now));cancel.ExecuteNonQuery();

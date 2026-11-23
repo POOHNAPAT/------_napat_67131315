@@ -1,17 +1,17 @@
 @model DemoPayment
-@{ViewData["Title"]="ชำระเงินทดลอง";}
+@{ViewData["Title"]="ชำระเงินทดลอง";var checkout=ViewData["Checkout"] as WalletCheckout;}
 <section class="form-panel">
 <p class="eyebrow">เครดิตทดลอง</p><h1>ชำระเงินทดลอง</h1>
 <p class="alert">หน้านี้ใช้ทดสอบการเติมเครดิต ไม่มีการเรียกเก็บเงินจริง ไม่ต้องกรอกข้อมูลบัตรหรือโอนเงิน</p>
 <dl class="details"><dt>ยอดเครดิตทดลอง</dt><dd><strong>฿@CourtTime.Money(Model.AmountSatang)</strong></dd><dt>รหัสรายการ</dt><dd style="overflow-wrap:anywhere">@Model.Id</dd><dt>สถานะ</dt><dd>@Model.StatusLabel</dd></dl>
 @if(Model.Status=="Pending" && !Model.IsExpired){
 <p>เลือกผลการทดสอบด้านล่าง เมื่อสำเร็จเครดิตจะเข้ากระเป๋าทันที รายการมีอายุ 15 นาที</p>
-<form asp-action="CompleteDemoPayment" asp-route-id="@Model.Id" method="post">
+<form asp-action="CompleteDemoPayment" asp-route-id="@Model.Id" asp-route-bookingId="@checkout?.BookingId" asp-route-planId="@checkout?.PlanId" asp-route-damageId="@checkout?.DamageId" method="post">
 <div class="action-row">
 <button class="button" type="submit" name="outcome" value="Paid">ชำระสำเร็จ</button>
 <button class="button secondary" type="submit" name="outcome" value="Failed">ชำระไม่สำเร็จ</button>
 <button class="button secondary" type="submit" name="outcome" value="Cancelled">ยกเลิกรายการทดลอง</button>
 </div></form>
 }else{<p>รายการนี้สิ้นสุดแล้ว ไม่สามารถเติมเครดิตซ้ำได้ สร้างรายการใหม่ได้จากหน้ากระเป๋าเงิน</p>}
-<p><a asp-action="Index" asp-fragment="topup">กลับไปกระเป๋าเงิน</a></p>
+<p><a asp-action="Index" asp-route-bookingId="@checkout?.BookingId" asp-route-planId="@checkout?.PlanId" asp-route-damageId="@checkout?.DamageId" asp-fragment="topup">กลับไปกระเป๋าเงิน</a></p>
 </section>

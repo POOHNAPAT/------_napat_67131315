@@ -40,12 +40,14 @@ public partial class BookingStore
         indexes.ExecuteNonQuery();tx.Commit();
     }
 
-    public void ReportDamage(long userId,long? bookingId,DamageReportForm form)
+    public void ReportDamage(long userId,long? bookingId,DamageReportForm form,long? adminId=null)
     {
         if(form.Category is not ("Court" or "Equipment" or "Other") || string.IsNullOrWhiteSpace(form.Description)
             || form.Description.Trim().Length is <5 or >2000 || form.Subject?.Length>200)
             throw new BookingRuleException("เลือกประเภทปัญหา ระบุหัวข้อไม่เกิน 200 ตัวอักษร และรายละเอียด 5–2,000 ตัวอักษร");
+        var image=ReadUploadedImage(form.Evidence);
         using var c=Open();using var tx=BeginWrite(c);
+        if(adminId.HasValue)RequireAdmin(c,adminId.Value,tx);
         RequireMember(c,userId,tx);
         BookingEquipment? item=null;string? courtName=null;
         if(bookingId.HasValue)
@@ -62,11 +64,14 @@ public partial class BookingStore
         var subject=string.IsNullOrWhiteSpace(form.Subject)?courtName??(form.Category=="Court"?"ไม่ระบุสนาม":"ปัญหาการใช้งาน"):form.Subject.Trim();
         using var insert=Cmd(c,"""
             INSERT INTO DamageReports(UserId,BookingId,Subject,Category,EquipmentId,EquipmentName,Description,CreatedAt)
-            VALUES($user,$booking,$subject,$category,$equipment,$name,$description,$now)
+            VALUES($user,$booking,$subject,$category,$equipment,$name,$description,$now) RETURNING Id
             """,tx,("$user",userId),("$booking",bookingId),("$subject",subject),("$category",form.Category),("$equipment",item?.Id??""),
             ("$name",item?.Name??(form.Category=="Equipment"?(string.IsNullOrWhiteSpace(form.Subject)?"ไม่ระบุอุปกรณ์":form.Subject.Trim()):"")),
             ("$description",form.Description.Trim()),("$now",DateTime.UtcNow.ToString("O")));
-        insert.ExecuteNonQuery();tx.Commit();
+        var id=(long)insert.ExecuteScalar()!;
+        if(image is not null)InsertDamageEvidence(c,tx,id,adminId??userId,image,"After","");
+        if(adminId.HasValue)RecordDamageEvent(c,tx,id,0,"Reported",0,"ผู้ดูแลเปิดเรื่องจากรายการจอง",adminId.Value);
+        tx.Commit();
     }
 
     public IReadOnlyList<DamageReport> DamageReports(long? userId=null,long? bookingId=null,string? status=null)
@@ -78,23 +83,26 @@ public partial class BookingStore
             FROM DamageReports d JOIN Users u ON u.Id=d.UserId LEFT JOIN Bookings b ON b.Id=d.BookingId
             LEFT JOIN Users a ON a.Id=d.UpdatedBy
             WHERE ($user IS NULL OR d.UserId=$user) AND ($booking IS NULL OR d.BookingId=$booking)
-              AND ($status='' OR d.Status=$status)
+              AND ($status='' OR COALESCE((SELECT Status FROM DamageClaims WHERE ReportId=d.Id),d.Status)=$status)
             ORDER BY CASE d.Status WHEN 'Reported' THEN 0 WHEN 'InProgress' THEN 1 ELSE 2 END,d.Id DESC
             """,null,("$user",userId),("$booking",bookingId),("$status",status??""));
         using var r=cmd.ExecuteReader();var result=new List<DamageReport>();
         while(r.Read())result.Add(new(r.GetInt64(0),r.IsDBNull(1)?null:r.GetInt64(1),r.GetString(2),r.IsDBNull(3)?null:Date(r.GetString(3)),r.GetString(4),r.GetString(5),
             r.GetString(6),r.GetString(7),r.GetString(8),r.GetString(9),r.GetString(10),r.IsDBNull(11)?null:r.GetString(11),r.GetString(12),r.GetString(13)));
-        return result;
+        r.Close();return LoadDamageClaimDetails(c,result);
     }
 
     public bool UpdateDamageReport(long id,long adminId,DamageReportUpdate form)
     {
         if(!DamageReport.Statuses.Contains(form.Status)||form.AdminNote?.Length>1000)
             throw new BookingRuleException("เลือกสถานะที่ถูกต้อง และระบุหมายเหตุไม่เกิน 1,000 ตัวอักษร");
-        using var c=Open();using var cmd=Cmd(c,"""
+        using var c=Open();using var tx=BeginWrite(c);RequireAdmin(c,adminId,tx);
+        using var claim=Cmd(c,"SELECT COUNT(*) FROM DamageClaims WHERE ReportId=$id",tx,("$id",id));
+        if((long)claim.ExecuteScalar()!>0)throw new BookingRuleException("รายงานนี้มีผลประเมินแล้ว กรุณาใช้ส่วนตรวจสอบค่าซ่อมเพื่อรักษาประวัติและการตอบรับของลูกค้า");
+        using var cmd=Cmd(c,"""
             UPDATE DamageReports SET Status=$status,AdminNote=$note,UpdatedAt=$now,UpdatedBy=$admin
             WHERE Id=$id AND EXISTS(SELECT 1 FROM Users WHERE Id=$admin AND Role='Admin' AND IsLocked=0)
-            """,null,("$id",id),("$admin",adminId),("$status",form.Status),("$note",form.AdminNote?.Trim()??""),("$now",DateTime.UtcNow.ToString("O")));
-        return cmd.ExecuteNonQuery()==1;
+            """,tx,("$id",id),("$admin",adminId),("$status",form.Status),("$note",form.AdminNote?.Trim()??""),("$now",DateTime.UtcNow.ToString("O")));
+        var changed=cmd.ExecuteNonQuery()==1;tx.Commit();return changed;
     }
 }

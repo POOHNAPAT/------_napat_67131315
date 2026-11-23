@@ -1,0 +1,32 @@
+@model DamageReport
+@{var admin=Context.Items["AdminPortal"] is true;var claim=Model.Claim;}
+@if(Model.Evidence.Count>0){
+<div class="damage-evidence-grid">
+@foreach(var photo in Model.Evidence){<figure><a asp-controller="Damage" asp-action="Evidence" asp-route-id="@photo.Id" target="_blank" rel="noopener"><img src="@Url.Action("Evidence","Damage",new{id=photo.Id})" alt="@DamageEvidence.Label(photo.Kind): @photo.Caption" loading="lazy"/></a><figcaption><strong>@DamageEvidence.Label(photo.Kind)</strong><p>@photo.Caption</p><small>@photo.UploadedBy · @DateTimeOffset.Parse(photo.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture)</small></figcaption></figure>}
+</div>}
+@if(claim?.Closed!=true){
+<details class="damage-action"><summary>เพิ่มหลักฐาน (@Model.Evidence.Count / 12 รูป)</summary>
+<form asp-controller="Damage" asp-action="AddEvidence" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data">
+<label for="evidence-kind-@Model.Id">ประเภทหลักฐาน</label><select id="evidence-kind-@Model.Id" name="Kind"><option value="After">สภาพหลังใช้งาน</option><option value="Before">สภาพก่อนใช้งาน</option><option value="Invoice">ใบเสนอราคา / ค่าซ่อม</option><option value="Other">หลักฐานเพิ่มเติม</option></select>
+<label for="evidence-file-@Model.Id">รูปหลักฐาน</label><input id="evidence-file-@Model.Id" name="Image" type="file" accept="image/jpeg,image/png,image/webp" required aria-describedby="evidence-help-@Model.Id"/><p class="help" id="evidence-help-@Model.Id">JPG, PNG หรือ WebP ไม่เกิน 5 MB ต่อรูป เปิดรูปเพื่อดูขนาดเต็มได้</p>
+<label for="evidence-caption-@Model.Id">คำอธิบายรูป</label><input id="evidence-caption-@Model.Id" name="Caption" maxlength="300"/><button type="submit" class="button secondary">เพิ่มหลักฐาน</button></form></details>}
+@if(claim is not null){
+<section class="damage-assessment"><h4>ผลตรวจสอบและค่าซ่อม · ครั้งที่ @claim.Revision</h4><p class="damage-report-text">@claim.Reason</p><p class="damage-amount">@(claim.Status=="Waived"?"ไม่เรียกเก็บค่าเสียหาย":"ยอดค่าซ่อม ฿"+CourtTime.Money(claim.AmountSatang))</p>
+@if(!string.IsNullOrWhiteSpace(claim.CustomerNote)){<p class="damage-report-text"><strong>คำตอบจากลูกค้า</strong><br/>@claim.CustomerNote</p>}
+@if(!admin&&claim.Status is "AwaitingCustomer" or "AwaitingPayment"){
+<p class="help">ตรวจสอบผลประเมินและหลักฐานก่อนตอบกลับ การยอมรับยังไม่ตัดเงิน หากผลประเมินเปลี่ยนจะต้องยอมรับใหม่</p>
+@if(claim.Status=="AwaitingCustomer"){<form asp-controller="Damage" asp-action="Respond" asp-route-id="@Model.Id" method="post"><input type="hidden" name="Revision" value="@claim.Revision"/><input type="hidden" name="Decision" value="Accept"/><button class="button" type="submit">ยอมรับค่าซ่อม ฿@CourtTime.Money(claim.AmountSatang)</button></form>}
+<details class="damage-action"><summary>ขอทบทวนผลประเมิน</summary><form asp-controller="Damage" asp-action="Respond" asp-route-id="@Model.Id" method="post"><input type="hidden" name="Revision" value="@claim.Revision"/><input type="hidden" name="Decision" value="Dispute"/><label for="dispute-@Model.Id">เหตุผลขอทบทวน</label><textarea id="dispute-@Model.Id" name="Note" rows="3" minlength="5" maxlength="2000" required></textarea><button type="submit" class="button secondary">ส่งคำขอทบทวน</button></form></details>
+@if(claim.Status=="AwaitingPayment"){<form asp-controller="Damage" asp-action="Pay" asp-route-id="@Model.Id" method="post"><input type="hidden" name="revision" value="@claim.Revision"/><p>ยืนยันชำระ ฿@CourtTime.Money(claim.AmountSatang) จากกระเป๋าเงิน COURTBOOK</p><button class="button" type="submit">ชำระค่าซ่อม ฿@CourtTime.Money(claim.AmountSatang)</button> <a asp-controller="Wallet" asp-action="Index" asp-route-damageId="@Model.Id">เติมเงิน / ดูยอดกระเป๋า</a></form>}
+}
+@if(!admin&&claim.Status=="Disputed"){<p class="help">ส่งคำขอทบทวนแล้ว รอผู้ดูแลตรวจสอบและแจ้งผลประเมินใหม่</p>}
+@if(claim.Status=="Paid"){<a class="button secondary" asp-controller="@(admin?"Admin":"Receipts")" asp-action="@(admin?"Receipt":"Details")" asp-route-id="@claim.ReceiptId">เปิดใบเสร็จค่าซ่อม</a>}
+</section>}
+@if(admin&&claim?.Closed!=true&&Model.BookingId.HasValue&&Model.Category!="Other"){
+<details class="damage-action" open="@(claim?.Status=="Disputed")"><summary>@(claim is null?"ตรวจสอบความรับผิดชอบและค่าซ่อม":"ทบทวนผลตรวจสอบ / ยกเว้นค่าเสียหาย")</summary>
+<form asp-controller="Damage" asp-action="Assess" asp-route-id="@Model.Id" method="post"><input type="hidden" name="Revision" value="@(claim?.Revision??0)"/>
+<label for="assessment-reason-@Model.Id">ผลตรวจสอบ เหตุผลความรับผิดชอบ และรายการค่าซ่อม</label><textarea id="assessment-reason-@Model.Id" name="Reason" rows="5" minlength="5" maxlength="2000" required>@claim?.Reason</textarea>
+<label for="assessment-amount-@Model.Id">รวมค่าซ่อม / เปลี่ยนอุปกรณ์ (บาท)</label><input id="assessment-amount-@Model.Id" name="Amount" type="number" min="0" max="1000000" step="0.01" value="@((claim?.AmountSatang??0)/100m)" required/>
+<label class="checkbox"><input name="Waive" type="checkbox" value="true"/> ไม่เรียกเก็บ เช่น เสื่อมสภาพตามปกติ หรือไม่พบความรับผิดของลูกค้า</label>
+<p class="help">แนบหลักฐานก่อนเรียกเก็บ ระบุรายการค่าใช้จ่ายให้ตรวจสอบได้ ผลประเมินใหม่จะให้ลูกค้าตอบรับอีกครั้ง</p><button class="button" type="submit">แจ้งผลตรวจสอบให้ลูกค้า</button></form></details>}
+@if(Model.Events.Count>0){<details class="damage-action"><summary>ประวัติการดำเนินการ (@Model.Events.Count)</summary><ol class="damage-event-list">@foreach(var entry in Model.Events){<li><strong>@DamageClaim.Label(entry.Status)</strong> · ครั้งที่ @entry.Revision · ฿@CourtTime.Money(entry.AmountSatang)<p class="damage-report-text">@entry.Note</p><small>@entry.ActorName · @DateTimeOffset.Parse(entry.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture)</small></li>}</ol></details>}

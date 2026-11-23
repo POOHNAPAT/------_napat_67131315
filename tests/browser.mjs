@@ -1,5 +1,5 @@
 // Capture real application pages using a temporary database and a local test host.
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -170,6 +170,16 @@ try {
   activeBase=base;
   await navigate('/Account/Profile');
   if(!await evaluate("document.querySelector('main').innerText.includes('browser@example.com')")) throw new Error('Second customer logout signed out first account');
+  // Count the disposable test equipment through the same forms used by staff.
+  activeBase=adminBase;await navigate('/Account/Login');
+  await fill({Email:'admin@courtbook.local',Password:'CourtBook123!'});await submit('/Admin');
+  await navigate('/Admin/Inventory');
+  const stockRoutes=await evaluate("[...document.querySelectorAll('a[href*=\"/Admin/EquipmentStock/\"]')].map(a=>new URL(a.href).pathname)");
+  for(const route of stockRoutes){
+    await navigate(route);await fill({TotalQuantity:'50',RepairQuantity:'0',Note:'Counted equipment for isolated browser test'});await submit(route);
+    await waitFor("document.querySelector('input[name=Revision]').value==='1'");
+  }
+  activeBase=base;await navigate('/Account/Profile');
   await navigate('/Wallet'); await screenshot('31-wallet');
   if(!await evaluate("document.querySelector('form[action=\"/Wallet/TopUp\"]') !== null")) throw new Error('Wallet top-up form missing');
   await navigate('/Bookings/Create?courtId=1');
@@ -193,11 +203,11 @@ try {
   await evaluate("document.getElementById('booking-form').requestSubmit()");
   await waitFor("location.pathname.startsWith('/Bookings/Result/') && document.readyState==='complete'");
   await screenshot('06-result');
-  await waitFor("document.querySelector('.qr-code-card img')?.naturalWidth>0");
-  if(!await evaluate("document.querySelector('#qr-payment').getBoundingClientRect().top<document.querySelector('.booking-details').getBoundingClientRect().top")) throw new Error('Pending booking QR is hidden below details');
-  await screenshot('30-qr-immediately-after-booking');
+  await waitFor("document.querySelector('#wallet-payment')!==null");
+  if(await evaluate("document.querySelector('#qr-payment,form[action*=SubmitPayment]')!==null"))throw new Error('Direct booking transfer is still offered');
+  await screenshot('30-wallet-immediately-after-booking');
   await navigate('/Bookings/History');
-  if(!await evaluate("Array.from(document.querySelectorAll('main a')).some(a=>a.hash==='#qr-payment')")) throw new Error('Booking history has no direct QR payment link');
+  if(!await evaluate("Array.from(document.querySelectorAll('main a')).some(a=>a.hash==='#wallet-payment')")) throw new Error('Booking history has no wallet payment link');
   await navigate('/Bookings/Create?courtId=2&hour=13');
   await waitFor("!document.getElementById('confirm-booking').disabled");
   await evaluate("document.getElementById('booking-form').requestSubmit()");
@@ -242,31 +252,35 @@ try {
   await navigate('/Admin/Bookings'); await screenshot('12-admin-bookings');
   await navigate('/Admin/Booking/1'); await screenshot('12b-booking-detail');
   await evaluate("document.querySelector('main form[action*=ConfirmBooking]').requestSubmit()");
-  await waitFor("document.querySelector('main form[action*=ConfirmPayment]') !== null");
+  await waitFor("document.querySelector('main form[action*=ConfirmBooking]')===null");
   activeBase=base;
   await navigate('/Bookings/Result/1');
-  await waitFor("document.querySelector('.qr-code-card img')?.naturalWidth>0");
-  if(!await evaluate("document.querySelector('.payment-amount').innerText.includes('510.00')")) throw new Error('QR payment does not use saved discounted amount');
-  await screenshot('26-qr-payment');
+  await evaluate("document.querySelector('#wallet-payment a[href*=\"/Wallet\"]').click()");await waitPath('/Wallet');
+  if(!await evaluate("document.getElementById('topup-amount').value==='510' || document.getElementById('topup-amount').value==='510.00'"))throw new Error('Wallet shortfall does not use the saved discounted amount');
+  if(!await evaluate("new URLSearchParams(location.search).get('bookingId')==='1'"))throw new Error('Top-up lost its original booking');
+  await screenshot('26-wallet-shortfall');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-  if(await evaluate('document.documentElement.scrollWidth > innerWidth + 1')) throw new Error('QR payment overflows mobile viewport');
-  await screenshot('27-mobile-qr-payment');
+  if(await evaluate('document.documentElement.scrollWidth > innerWidth + 1')) throw new Error('Wallet checkout overflows mobile viewport');
+  await screenshot('27-mobile-wallet-shortfall');
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
   if(await evaluate("!!document.querySelector('input[name=TransferReference]')")) throw new Error('Transfer reference input should be removed');
   const slipDocument=await call('DOM.getDocument');
-  const slipInput=await call('DOM.querySelector',{nodeId:slipDocument.root.nodeId,selector:'#payment-slip'});
+  const slipInput=await call('DOM.querySelector',{nodeId:slipDocument.root.nodeId,selector:'#topup-slip'});
   // A test image proves uploading evidence never automatically confirms payment.
   await call('DOM.setFileInputFiles',{nodeId:slipInput.nodeId,files:[uploadFixture]});
-  await evaluate("document.querySelector('form[action*=SubmitPayment]').requestSubmit()");
-  await waitFor("document.querySelector('main').innerText.includes('รอตรวจสอบการชำระเงิน') && !document.querySelector('.qr-code-card')");
-  await screenshot('28-payment-proof-submitted');
+  await evaluate("document.querySelector('form[action*=\"/Wallet/TopUp\"]').requestSubmit()");
+  await waitFor("document.querySelector('#topup-requests').innerText.includes('TU000001')");
+  await screenshot('28-topup-pending');
   activeBase=adminBase;
-  await navigate('/Admin/Booking/1');
-  await waitFor("document.querySelector('.payment-slip-image')?.naturalWidth>0");
-  await screenshot('29-admin-payment-proof');
-  await fill({Reference:'BROWSER-BANK-510'});
-  await evaluate("document.querySelector('main form[action*=ConfirmPayment]').requestSubmit()");
-  await waitFor("document.querySelector('main').innerText.includes('BROWSER-BANK-510') && !document.querySelector('main form[action*=ConfirmPayment]')");
+  await navigate('/Admin/TopUps');await screenshot('29-admin-topup-review');
+  await evaluate("window.confirm=()=>true;document.querySelector('input[name=approve][value=true]').form.requestSubmit()");
+  await waitFor("document.querySelector('main').innerText.includes('เติมเงินสำเร็จ')");
+  activeBase=base;await navigate('/Wallet?bookingId=1');await screenshot('75-topup-approved-return');
+  await evaluate("document.querySelector('#checkout-return a').click()");await waitPath('/Bookings/Result/1');
+  await evaluate("window.confirm=()=>true;document.querySelector('form[action*=PayWallet]').requestSubmit()");
+  await waitFor("document.querySelector('a[href*=\"/Receipts/Details/RC-BK-000001\"]')!==null");
+  activeBase=adminBase;await navigate('/Admin/Booking/1');
+  if(await evaluate("document.querySelector('main form[action*=ConfirmPayment]')!==null"))throw new Error('New bookings expose direct payment confirmation');
   await screenshot('12c-payment-confirmed');
   for(const width of [360,768,1440]) {
     await call('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<680});
@@ -281,7 +295,7 @@ try {
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
   activeBase = base;
   await navigate('/Bookings/Result/1');
-  if(!await evaluate("document.querySelector('main').innerText.includes('BROWSER-BANK-510')")) throw new Error('Customer cannot see payment confirmation');
+  if(!await evaluate("document.querySelector('main').innerText.includes('กระเป๋าเงิน CB000001')")) throw new Error('Customer cannot see wallet payment confirmation');
   activeBase = adminBase;
   await navigate('/Admin/Customers'); await screenshot('16-customers');
   await navigate('/Admin/Customer/3'); await screenshot('17-customer-detail');
@@ -305,7 +319,7 @@ try {
   activeBase=adminBase;
   await navigate('/Admin/Equipment'); await screenshot('35-admin-equipment');
   await navigate('/Admin/EquipmentItem');
-  await fill({Name:'Tennis racket',Unit:'piece',Price:'65.50',SportTypeId:'2'});
+  await fill({Name:'Tennis racket',Unit:'piece',Price:'65.50',SportTypeId:'2',InitialStock:'20'});
   await screenshot('36-equipment-editor');
   await submit('/Admin/Equipment');
   await waitFor("document.querySelector('main table').innerText.includes('Tennis racket')");
@@ -383,7 +397,7 @@ try {
   await screenshot('44-customer-damage-report');
   activeBase=adminBase;await navigate('/Admin/DamageReports');
   await fill({Status:'InProgress',AdminNote:'Maintenance team is checking the racket'});
-  await submit('/Admin/DamageReports');
+  await evaluate("document.querySelector('form[action^=\"/Admin/UpdateDamageReport/\"]').requestSubmit()");
   await waitFor("document.querySelector('.damage-status-InProgress') !== null");
   await screenshot('45-admin-damage-reports');
   activeBase=base;await navigate(reportPath);
@@ -402,7 +416,8 @@ try {
   await screenshot('47-direct-customer-report');
   activeBase=adminBase;await navigate('/Admin/DamageReports?status=Reported');
   await fill({Status:'Resolved',AdminNote:'Direct issue has been checked'});
-  await submit('/Admin/DamageReports');
+  await evaluate("document.querySelector('form[action^=\"/Admin/UpdateDamageReport/\"]').requestSubmit()");
+  await waitFor("document.querySelector('.damage-status-Resolved')!==null");
   activeBase=base;await navigate('/Bookings/ReportDamage');
   if(!await evaluate("document.querySelector('main').innerText.includes('Direct issue has been checked')")) throw new Error('Direct report reply is missing');
   // This route intentionally returns HTTP 500 while showing a usable recovery form.
@@ -522,10 +537,88 @@ try {
     if(await evaluate('document.documentElement.scrollWidth>innerWidth+1'))throw new Error(`Quota membership overflow at ${width}`);
     await screenshot(`63-quota-mobile-${width}`);
   }
+  // Complete damage assessment in the real forms, including mobile layouts and receipt.
+  activeBase=adminBase;
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
+  await navigate('/Admin/ReportDamage/'+damagedBooking);
+  await fill({Category:'Court',Description:'พื้นสนามชำรุดหลังใช้งาน ตรวจสอบรอยและค่าเปลี่ยนวัสดุ'});
+  const damageInput=await evaluate("document.querySelector('input[name=Evidence]')!==null");
+  if(!damageInput)throw new Error('Admin damage evidence input missing');
+  const damageDocument=await call('DOM.getDocument');
+  const damageFile=await call('DOM.querySelector',{nodeId:damageDocument.root.nodeId,selector:'input[name=Evidence]'});
+  await call('DOM.setFileInputFiles',{nodeId:damageFile.nodeId,files:[uploadFixture]});
+  await submit('/Admin/DamageReports');
+  const claimId=await evaluate("Math.max(...[...document.querySelectorAll('.damage-report-record')].map(e=>Number(e.id.replace('report-',''))))");
+  const claimSelector='#report-'+claimId;
+  await evaluate(`(() => {const f=document.querySelector('${claimSelector} form[action^="/Damage/Assess/"]');f.querySelector('[name=Reason]').value='เปลี่ยนวัสดุปูพื้นส่วนที่เสียหาย 25 บาท พร้อมหลักฐานสภาพสนาม';f.querySelector('[name=Amount]').value='25';f.requestSubmit();})()`);
+  await waitFor(`document.querySelector('${claimSelector} .damage-status-AwaitingCustomer')!==null`);
+  await screenshot('64-admin-damage-assessment');
+  activeBase=base;await navigate('/Bookings/ReportDamage');
+  if(!await evaluate(`document.querySelector('${claimSelector} .damage-evidence-grid img')!==null`))throw new Error('Customer damage evidence missing');
+  await screenshot('65-customer-damage-assessment');
+  for(const width of [360,768]){
+    await call('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<680});
+    for(const portal of [base,adminBase]){
+      activeBase=portal;await navigate(portal===base?'/Bookings/ReportDamage':'/Admin/DamageReports');
+      if(await evaluate('document.documentElement.scrollWidth>innerWidth+1'))throw new Error(`Damage claim overflow at ${width}: ${portal}`);
+      await screenshot(`66-damage-${portal===base?'customer':'admin'}-${width}`);
+    }
+  }
+  activeBase=base;await navigate('/Bookings/ReportDamage');
+  await evaluate(`document.querySelector('${claimSelector} input[name=Decision][value=Accept]').form.requestSubmit()`);
+  await waitFor(`document.querySelector('${claimSelector} .damage-status-AwaitingPayment')!==null`);
+  await screenshot('67-damage-payment-confirmation');
+  await evaluate(`document.querySelector('${claimSelector} form[action^="/Damage/Pay/"]').requestSubmit()`);
+  await waitFor(`document.querySelector('${claimSelector} .damage-status-Paid')!==null`);
+  await navigate('/Receipts/Details/RC-DM-'+String(claimId).padStart(6,'0'));
+  if(!await evaluate("document.querySelector('.receipt-document').innerText.includes('25.00')"))throw new Error('Damage receipt lacks accepted amount');
+  await screenshot('68-damage-receipt');
+  activeBase=adminBase;await navigate('/Admin/Booking/'+damagedBooking);
+  if(await evaluate("document.querySelector('form[action*=ConfirmBooking]')!==null")){
+    await evaluate("document.querySelector('form[action*=ConfirmBooking]').requestSubmit()");
+    await waitFor("document.querySelector('form[action*=ConfirmBooking]')===null");
+  }
+  activeBase=base;await navigate('/Bookings/Result/'+damagedBooking);
+  await evaluate("window.confirm=()=>true;document.querySelector('form[action*=PayWallet]').requestSubmit()");
+  await waitFor("document.querySelector('form[action*=PayWallet]')===null");
+  activeBase=adminBase;
+  // Put this isolated booking in its live session without depending on the test execution hour.
+  const liveBooking=spawnSync('python',['-c',"import sqlite3,datetime,sys; n=datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(hours=7); c=sqlite3.connect(sys.argv[1]); c.execute('UPDATE Bookings SET PlayDate=?,StartHour=?,Hours=1 WHERE Id=?',(str(n.date()),n.hour,int(sys.argv[2]))); c.commit()",path.join(temp,'courtbook.db'),damagedBooking],{windowsHide:true,encoding:'utf8'});
+  if(liveBooking.status!==0)throw new Error('Cannot prepare live inventory fixture: '+liveBooking.stderr);
+  await navigate('/Admin/EquipmentHandover/'+damagedBooking);
+  await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
+  await evaluate("document.querySelector('#loan-racket details').open=true");
+  await fill({Quantity:'1',Note:'ตรวจสภาพก่อนส่งมอบ อุปกรณ์พร้อมใช้'});
+  const handoverDocument=await call('DOM.getDocument');
+  const handoverImage=await call('DOM.querySelector',{nodeId:handoverDocument.root.nodeId,selector:'form[action*=IssueEquipment] input[type=file]'});
+  await call('DOM.setFileInputFiles',{nodeId:handoverImage.nodeId,files:[uploadFixture]});
+  await screenshot('69-equipment-issue');
+  await evaluate("document.querySelector('form[action*=IssueEquipment]').requestSubmit()");
+  await waitFor("document.querySelector('form[action*=ReturnEquipment]')!==null");
+  await screenshot('70-equipment-return');
+  await fill({GoodQuantity:'0',DamagedQuantity:'1',Note:'พบด้ามจับชำรุดขณะตรวจรับคืน'});
+  await evaluate("document.querySelector('form[action*=ReturnEquipment]').requestSubmit()");
+  await waitFor("document.querySelector('form[action*=ReturnEquipment]')===null");
+  if(!await evaluate("document.querySelector('.inventory-movements').innerText.includes('รับคืนชำรุด 1')"))throw new Error('Damaged return history missing');
+  await screenshot('71-equipment-returned');
+  await navigate('/Admin/Inventory');await screenshot('72-inventory-overview');
+  if(!await evaluate("document.querySelector('.admin-nav a[href=\"/Admin/Inventory\"]').textContent.includes('สต็อก')"))throw new Error('Inventory navigation label is unreadable');
+  if(await evaluate("getComputedStyle(document.querySelector('.inventory-section>.empty')).backgroundColor==='rgb(248, 250, 245)'"))throw new Error('Inventory empty state lost dark theme');
+  for(const width of [360,768]){
+    await call('Emulation.setDeviceMetricsOverride',{width,height:950,deviceScaleFactor:1,mobile:width<680});
+    for(const route of ['/Admin/Inventory','/Admin/EquipmentStock/racket','/Admin/EquipmentHandover/'+damagedBooking]){
+      await navigate(route);if(await evaluate('document.documentElement.scrollWidth>innerWidth+1'))throw new Error(`Inventory overflow at ${width}: ${route}`);
+    }
+    await screenshot(`73-inventory-mobile-${width}`);
+    activeBase=base;await navigate('/Bookings/EquipmentHandover/'+damagedBooking);
+    if(await evaluate('document.documentElement.scrollWidth>innerWidth+1'))throw new Error(`Customer handover overflow at ${width}`);
+    if(await evaluate("document.querySelector('form[action*=ReturnEquipment]')!==null"))throw new Error('Customer can edit physical returns');
+    await screenshot(`74-customer-handover-${width}`);activeBase=adminBase;
+  }
   if(clientErrors.length) throw new Error('Browser errors: '+clientErrors.join(', '));
-  await writeFile(path.join(output,'verification.json'),JSON.stringify({pages:13,extraForms:3,mobileWidths:[390],bookingNetBaht:510,
+  await writeFile(path.join(output,'verification.json'),JSON.stringify({pages:13,extraForms:3,mobileWidths:[360,390,768],bookingNetBaht:510,damageClaimAcceptedBaht:25,
     javascriptErrors:clientErrors,productionDatabaseChanged:false,source:'Real MVC views, isolated SQLite, Testing environment'},null,2));
-  console.log('PASS: QR shows discounted amount, private transfer proof awaits admin review, manual payment confirmation, promotions, booking, cancellation, image uploads and responsive layouts; no JS errors.');
+  console.log('PASS: Wallet-only booking, exact shortfall top-up, admin top-up review, explicit wallet payment, receipts, damage, inventory and responsive layouts; no JS errors.');
   await call('Browser.close').catch(()=>{});
 } finally {
   ws?.close();

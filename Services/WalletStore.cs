@@ -11,7 +11,7 @@ public partial class BookingStore
         using var cmd = Cmd(c, """
             CREATE TABLE IF NOT EXISTS TopUps (
               Id INTEGER PRIMARY KEY, UserId INTEGER NOT NULL REFERENCES Users(Id),
-              AmountSatang INTEGER NOT NULL CHECK(AmountSatang BETWEEN 100 AND 10000000),
+              AmountSatang INTEGER NOT NULL CHECK(AmountSatang BETWEEN 1 AND 10000000),
               TransferReference TEXT COLLATE NOCASE NOT NULL UNIQUE, SlipData BLOB NOT NULL,
               SlipContentType TEXT NOT NULL, SlipHash TEXT NOT NULL UNIQUE,
               Status TEXT NOT NULL DEFAULT 'Pending' CHECK(Status IN ('Pending','Approved','Rejected')),
@@ -156,8 +156,9 @@ public partial class BookingStore
 
     public long SubmitTopUp(long userId, TopUpForm form)
     {
-        if (form.Amount < 1 || form.Amount > 100000 || decimal.Round(form.Amount,2) != form.Amount)
-            throw new BookingRuleException("ระบุยอดเติมเงิน 1–100,000 บาท ทศนิยมไม่เกิน 2 ตำแหน่ง");
+        if (form.Amount < 0.01m || form.Amount > 100000 || decimal.Round(form.Amount,2) != form.Amount)
+            throw new BookingRuleException("ระบุยอดเติมเงิน 0.01–100,000 บาท ทศนิยมไม่เกิน 2 ตำแหน่ง");
+        if(form.CheckoutPath!=""&&!WalletCheckout.SafePath(form.CheckoutPath))throw new BookingRuleException("รายการสำหรับกลับไปชำระไม่ถูกต้อง");
         if (form.TransferReference?.Trim().Length > 200)
             throw new BookingRuleException("เลขรายการโอนต้องไม่เกิน 200 ตัวอักษร");
         var image = ReadUploadedImage(form.Slip) ?? throw new BookingRuleException("กรุณาแนบสลิปโอนเงิน");
@@ -170,10 +171,10 @@ public partial class BookingStore
         using var used = Cmd(c,"SELECT COUNT(*) FROM Bookings WHERE lower(TransferReference)=lower($reference) OR SlipData=$image",tx,("$reference",reference),("$image",image.Data));
         if ((long)used.ExecuteScalar()! > 0) throw new BookingRuleException("เลขโอนนี้เคยใช้ชำระค่าจองแล้ว");
         using var cmd = Cmd(c,"""
-            INSERT INTO TopUps(UserId,AmountSatang,TransferReference,SlipData,SlipContentType,SlipHash,CreatedAt)
-            VALUES($user,$amount,$reference,$image,$mime,$hash,$now) RETURNING Id
+            INSERT INTO TopUps(UserId,AmountSatang,TransferReference,SlipData,SlipContentType,SlipHash,CreatedAt,CheckoutPath)
+            VALUES($user,$amount,$reference,$image,$mime,$hash,$now,$path) RETURNING Id
             """,tx,("$user",userId),("$amount",Satang(form.Amount)),("$reference",reference),
-            ("$image",image.Data),("$mime",image.ContentType),("$hash",Convert.ToHexString(SHA256.HashData(image.Data))),("$now",DateTime.UtcNow.ToString("O")));
+            ("$image",image.Data),("$mime",image.ContentType),("$hash",Convert.ToHexString(SHA256.HashData(image.Data))),("$now",DateTime.UtcNow.ToString("O")),("$path",form.CheckoutPath));
         try { var id=(long)cmd.ExecuteScalar()!; tx.Commit(); return id; }
         catch(DbException ex) when(IsUniqueViolation(ex)) { throw new BookingRuleException("เลขรายการโอนหรือสลิปนี้ถูกส่งแล้ว กรุณาตรวจประวัติหรือติดต่อผู้ดูแล"); }
     }
@@ -182,12 +183,12 @@ public partial class BookingStore
     {
         using var c = Open();
         using var cmd = Cmd(c,"""
-            SELECT t.Id,t.UserId,u.Name,t.AmountSatang,t.TransferReference,t.Status,t.CreatedAt,t.ReviewNote
+            SELECT t.Id,t.UserId,u.Name,t.AmountSatang,t.TransferReference,t.Status,t.CreatedAt,t.ReviewNote,t.CheckoutPath
             FROM TopUps t JOIN Users u ON u.Id=t.UserId WHERE $user IS NULL OR t.UserId=$user ORDER BY t.Id DESC
             """,null,("$user",userId));
         using var r = cmd.ExecuteReader();
         var result = new List<TopUp>();
-        while(r.Read()) result.Add(new(r.GetInt64(0),r.GetInt64(1),r.GetString(2),r.GetInt64(3),r.GetString(4),r.GetString(5),r.GetString(6),r.GetString(7)));
+        while(r.Read()) result.Add(new(r.GetInt64(0),r.GetInt64(1),r.GetString(2),r.GetInt64(3),r.GetString(4),r.GetString(5),r.GetString(6),r.GetString(7),r.GetString(8)));
         return result;
     }
 

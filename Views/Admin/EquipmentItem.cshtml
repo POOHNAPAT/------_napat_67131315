@@ -4,6 +4,7 @@
 <form method="post" asp-action="EquipmentItem" class="panel wide-form">
 <div asp-validation-summary="All" class="validation" role="alert"></div>
 <input type="hidden" asp-for="Id"/>
+@if(string.IsNullOrEmpty(Model.Id)){<label asp-for="InitialStock">จำนวนอุปกรณ์ทั้งหมดจากการตรวจนับ</label><input asp-for="InitialStock" type="number" min="0" max="1000000" step="1" required/><p class="help">ระบุ 0 หากยังไม่มีของพร้อมให้เช่า</p>}else{<p><a asp-action="EquipmentStock" asp-route-id="@Model.Id">ตรวจนับสต็อก / บันทึกซ่อมเสร็จ</a></p>}
 <label asp-for="SportTypeId">ประเภทกีฬา</label><select asp-for="SportTypeId">@foreach(var sport in (IReadOnlyList<SportType>)ViewBag.SportTypes){<option value="@sport.Id">@sport.Name</option>}</select>
 <label asp-for="Name">ชื่ออุปกรณ์</label><input asp-for="Name" maxlength="100" required/>
 <div class="form-grid"><div><label asp-for="Price">ค่าเช่าต่อครั้ง (บาท)</label><input asp-for="Price" type="number" min="0.01" max="100000" step="0.01" required/></div><div><label asp-for="Unit">หน่วยนับ</label><input asp-for="Unit" maxlength="30" placeholder="เช่น ลูก อัน คู่ ชุด" required/></div></div>

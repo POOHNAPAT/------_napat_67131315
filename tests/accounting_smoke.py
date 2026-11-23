@@ -14,7 +14,7 @@ import sqlite3
 import subprocess
 import tempfile
 import time
-from smoke import Browser, DLL, ROOT, TODAY, PASSWORD, check
+from smoke import Browser, DLL, ROOT, TODAY, PASSWORD, check, legacy_payment
 
 
 def port():
@@ -70,6 +70,7 @@ def run():
                     return int(path.rsplit('/',1)[1])
                 direct=book(member,8);wallet=book(member,9);unpaid=book(member,10);foreign=book(other,11)
                 admin.post(f'/Admin/ConfirmBooking/{direct}',{},token_page=f'/Admin/Booking/{direct}')
+                legacy_payment(db,direct,png+b'historical-accounting','LEGACY-FIN-DIRECT')
                 admin.post(f'/Admin/ConfirmPayment/{direct}',{'Reference':'FIN-DIRECT'},token_page=f'/Admin/Booking/{direct}')
                 member.post(f'/Bookings/PayWallet/{wallet}',{},token_page='/Wallet')
                 admin.post('/Admin/Plans',{'Id':'monthly','Price':100,'DiscountPercent':10,'IsActive':'true'})
@@ -100,6 +101,7 @@ def run():
                 expected=f'{(100000+direct_due-5000)/100:,.2f}'
                 check(expected in page,'Cash difference counts external receipts once and excludes wallet charges and demo credit')
                 admin.post(f'/Admin/ConfirmBooking/{foreign}',{},token_page=f'/Admin/Booking/{foreign}')
+                legacy_payment(db,foreign,png+b'historical-private','LEGACY-PRIVATE')
                 admin.post(f'/Admin/ConfirmPayment/{foreign}',{'Reference':'PRIVATE-RECEIPT'},token_page=f'/Admin/Booking/{foreign}')
                 foreign_ref=f'CB{foreign:06d}'
                 foreign_snapshot=json.loads(sql('SELECT SnapshotJson FROM PaymentReceipts WHERE BookingId=?',(foreign,))[0][0])

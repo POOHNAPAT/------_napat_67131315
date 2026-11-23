@@ -10,7 +10,7 @@
 <p id="image-help" class="help">JPG, PNG หรือ WebP · ไม่เกิน 5 MB · แนะนำภาพแนวนอน 1600 × 1000 พิกเซล</p><p id="image-feedback" class="help" role="status"></p>
 @if(Model.CurrentImageUrl is not null){<label class="checkbox"><input asp-for="RemoveImage"/> ลบรูปเดิม (หากเลือกรูปใหม่ จะใช้รูปใหม่แทน)</label>}
 <p class="photo-placement-note">รูปนี้จะแสดงในหน้าแรก รายการสนาม และหน้าจองของลูกค้า</p></section>
-<section class="panel court-editor-fields"><p class="eyebrow">02 / COURT DETAILS</p><h2>รายละเอียดสนาม</h2><label asp-for="Location">สถานที่ / สาขา</label><input asp-for="Location" maxlength="200" placeholder="ระบุสถานที่จริง เช่น เขตหรือสาขา"/>
+<section class="panel court-editor-fields"><p class="eyebrow">02 / COURT DETAILS</p><h2>รายละเอียดสนาม</h2>
 <label asp-for="Name">ชื่อสนาม</label><input asp-for="Name" maxlength="100" required placeholder="เช่น สนามแบดมินตัน A"/>
 <label asp-for="SportTypeId">ประเภทกีฬา</label><select asp-for="SportTypeId">@foreach(var sport in (IReadOnlyList<SportType>)ViewBag.SportTypes){<option value="@sport.Id">@sport.Name</option>}</select>
 <label asp-for="Description">บรรยากาศและสิ่งอำนวยความสะดวก</label><textarea asp-for="Description" maxlength="500" rows="4" placeholder="พื้นสนาม แสงสว่าง ห้องน้ำ หรือที่จอดรถ"></textarea>

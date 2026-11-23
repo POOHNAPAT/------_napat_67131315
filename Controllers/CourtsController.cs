@@ -16,14 +16,14 @@ public class CourtsController(BookingStore store) : Controller
         Response.Headers["X-Content-Type-Options"] = "nosniff";
         return File(image.Data, image.ContentType);
     }
-    public IActionResult Index(DateOnly? date, long? courtId, long? sportTypeId, string? location, string? sport)
+    public IActionResult Index(DateOnly? date, long? courtId, long? sportTypeId, string? sport)
     {
         var selected = date ?? CourtTime.Today.AddDays(1);
         var courts = store.Courts().Where(c => !courtId.HasValue || c.Id == courtId).ToList();
-        courts=courts.Where(c=>(!sportTypeId.HasValue || c.SportTypeId==sportTypeId) && (string.IsNullOrWhiteSpace(location)||c.Location==location)
+        courts=courts.Where(c=>(!sportTypeId.HasValue || c.SportTypeId==sportTypeId)
             && (string.IsNullOrWhiteSpace(sport)||SportsAssets.Key(c.SportTypeName)==sport)).ToList();
         ViewBag.AllCourts = store.Courts();
-        ViewBag.SportTypes=store.SportTypes();ViewBag.SportTypeId=sportTypeId;ViewBag.Location=location;
+        ViewBag.SportTypes=store.SportTypes();ViewBag.SportTypeId=sportTypeId;
         return View(new SchedulePage(selected, courtId, courts.Select(c => new CourtSchedule(c, store.Slots(c, selected))).ToList()));
     }
     public IActionResult Details(long id)

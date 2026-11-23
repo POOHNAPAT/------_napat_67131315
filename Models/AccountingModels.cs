@@ -30,18 +30,19 @@ public record RefundPage(IReadOnlyList<BookingRefund> Refunds,string? Status);
 public record AccountingEntry(string Reference,string OccurredAt,string Kind,string Description,string MemberName,long AmountSatang,string Status,string Method,string? ReceiptId=null)
 {
     public DateOnly Date=>DateOnly.FromDateTime(DateTimeOffset.Parse(OccurredAt).ToOffset(TimeSpan.FromHours(7)).DateTime);
-    public string KindLabel=>Kind switch{"Booking"=>"ชำระค่าจอง","Membership"=>"ซื้อแพ็ก","TopUp"=>"เติมเงินผ่านธนาคาร","Demo"=>"เครดิตทดลอง","Refund"=>"คืนค่าจองเข้ากระเป๋า","Expense"=>"รายจ่าย",_=>Kind};
+    public string KindLabel=>Kind switch{"Damage"=>"ชำระค่าซ่อม","Booking"=>"ชำระค่าจอง","Membership"=>"ซื้อแพ็ก","TopUp"=>"เติมเงินผ่านธนาคาร","Demo"=>"เครดิตทดลอง","Refund"=>"คืนค่าจองเข้ากระเป๋า","Expense"=>"รายจ่าย",_=>Kind};
 }
 public record AccountingPage(DateOnly From,DateOnly To,IReadOnlyList<AccountingEntry> Entries,long WalletBalanceSatang)
 {
     private long Sum(string kind)=>Entries.Where(e=>e.Kind==kind&&e.Status!="Void").Sum(e=>e.AmountSatang);
     public long BookingSatang=>Sum("Booking");
     public long MembershipSatang=>Sum("Membership");
+    public long DamageSatang=>Sum("Damage");
     public long TopUpSatang=>Sum("TopUp");
     public long DemoSatang=>Sum("Demo");
     public long RefundSatang=>Sum("Refund");
     public long ExpenseSatang=>Sum("Expense");
-    public long NetSalesSatang=>BookingSatang+MembershipSatang-RefundSatang;
+    public long NetSalesSatang=>BookingSatang+MembershipSatang+DamageSatang-RefundSatang;
     public long ExternalInSatang=>TopUpSatang+Entries.Where(e=>e.Kind=="Booking"&&e.Method!="Wallet").Sum(e=>e.AmountSatang);
     public long CashDifferenceSatang=>ExternalInSatang-ExpenseSatang;
 }
