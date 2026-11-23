@@ -1,6 +1,9 @@
+/* Syy BENEATHPOEM: local pixel fonts for Thai and Latin text (SIL OFL 1.1). */
+@font-face{font-family:"CourtBook Pixel";src:url("../fonts/syy-beneathpoem/SyyUDS-Regular.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:"CourtBook Pixel";src:url("../fonts/syy-beneathpoem/SyyUDT-Regular.woff2") format("woff2");font-style:normal;font-weight:700;font-display:swap}
 /* CourtBook / After Hours. Shared tokens for customer and admin screens. */
 :root{color-scheme:dark;--ink:#f0f2e9;--green:#39FF14;--deep:#172015;--lime:#39FF14;--paper:#101310;--muted:#abb3a5;--line:#333a30;--surface:#1a1e19;--sage:#252d20;--red:#ff9e91;--focus:#39FF14;font-size:16px;line-height:1.7}
-body,.admin-portal{background:var(--paper);color:var(--ink);font-family:"Leelawadee UI","Tahoma",sans-serif}
+body,.admin-portal{background:var(--paper);color:var(--ink);font-family:"CourtBook Pixel","Leelawadee UI","Tahoma",sans-serif}
 button,input,select,textarea{font:inherit}
 h1,h2,h3{color:var(--ink);font-weight:750;letter-spacing:-.035em;text-wrap:balance}
 h1{font-size:clamp(2rem,4vw,3.2rem)}h2{font-size:clamp(1.5rem,2.8vw,2.2rem)}h3{font-size:1.2rem}p{overflow-wrap:break-word}
