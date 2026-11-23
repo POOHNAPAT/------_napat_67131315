@@ -1,0 +1,6 @@
+@model IReadOnlyList<AccountingEntry>
+@{var admin=Context.Items["AdminPortal"] is true;}
+@if(Model.Count==0){<p class="empty">ไม่มีรายการในช่วงวันที่นี้</p>}else{
+<p class="accounting-table-hint help">เลื่อนตารางแนวนอนเพื่อดูยอดเงิน สถานะ และใบเสร็จ →</p><div class="table-wrap" tabindex="0" role="region" aria-label="รายละเอียดการชำระเงิน"><table><thead><tr><th>วันที่</th><th>รายการ / อ้างอิง</th>@if(admin){<th>ผู้เกี่ยวข้อง</th>}<th>จำนวนเงิน</th><th>สถานะ / ช่องทาง</th><th>หลักฐาน</th></tr></thead><tbody>
+@foreach(var e in Model){<tr><td>@CourtTime.Display(e.Date)</td><td><strong>@e.KindLabel</strong><br/>@e.Description<br/><small>@e.Reference</small></td>@if(admin){<td>@e.MemberName</td>}<td class="money">฿@CourtTime.Money(e.AmountSatang)</td><td>@(e.Status=="Void"?"ยกเลิกรายจ่าย":"บันทึกแล้ว")<br/><small>@(e.Method switch{"Wallet"=>"กระเป๋า COURTBOOK","External"=>e.Kind=="TopUp"?"ธนาคาร":"รับชำระโดยตรง","Cash"=>"เงินสด","Transfer"=>"โอนเงิน","Demo"=>"ทดลอง",_=>e.Method})</small></td><td>@if(e.ReceiptId is not null){<a asp-controller="@(admin?"Admin":"Receipts")" asp-action="@(admin?"Receipt":"Details")" asp-route-id="@e.ReceiptId">เปิดใบเสร็จ</a>}else{<span>—</span>}</td></tr>}
+</tbody></table></div>}

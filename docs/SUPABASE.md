@@ -47,7 +47,7 @@ User Secrets เก็บค่าไว้นอกโฟลเดอร์โ�
 ## 4. ตรวจสอบหลังเชื่อมต่อ
 
 1. รัน `dotnet build` แล้วเปิดเว็บจาก `run.cmd` หรือคำสั่งด้านบน
-2. ตรวจ Table Editor ว่ามี users, courts, bookings, topups, walletentries, demopayments และตารางอื่นครบ 12 ตาราง ชื่อใน PostgreSQL เป็นตัวพิมพ์เล็ก
+2. ตรวจ Table Editor ว่ามี users, courts, bookings, topups, walletentries, demopayments และตารางอื่น รวมทั้ง rentalequipment และ courtreviews ชื่อใน PostgreSQL เป็นตัวพิมพ์เล็ก
 3. ทดลองสมัครสมาชิก เข้าสู่ระบบ จองสนาม อัปโหลดรูป/สลิป และตรวจจากผู้ดูแล
 4. ทดสอบเติมเงิน อนุมัติเงิน ซื้อแพ็ก และชำระค่าจอง ตรวจว่ายอดเงินกับประวัติตรงกัน
 5. ปิดและเปิดแอปใหม่ ข้อมูลต้องยังอยู่ หากย้ายข้อมูล ให้เทียบจำนวนแถวกับผลจากเครื่องมือส่งออก รวมถึงยอดเงิน รายการจอง และรูปภาพ ก่อนเปิดให้ผู้ใช้ใช้งาน
@@ -76,3 +76,13 @@ The latest wallet HTTP tests cover the demo flow, ownership, CSRF, invalid amoun
 - Supabase connection still requires local database credentials. PostgreSQL runtime checks remain pending until startup succeeds.
 
 For interactive setup on Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\connect-supabase.ps1`. Copy the User value from Session pooler and enter your database password at the hidden prompt. The script saves the connection in User Secrets outside the project and starts the verified build. It creates cloud tables without importing the existing SQLite records. For data migration, follow the import steps above before starting the cloud app.
+
+## ส่วนขยายแค็ตตาล็อก สมาชิก และบัญชี
+
+schema เพิ่ม `Courts.Location`, `Users.IsLocked`, `Bookings.SportTypeName`, `Bookings.Players`, `RentalEquipment.ImageUrl`, `Promotions.MinPlayers` และตาราง `CourtReviews` แบบเพิ่มข้อมูล ไม่ลบรายการเดิม รูปแบบ snapshot ในรายการจองยังคงชื่อสนาม ราคา อุปกรณ์ และส่วนลดเดิม
+
+CourtReviews เปิด RLS และไม่มี policy สำหรับ anon/authenticated เช่นเดียวกับตารางอื่น เว็บใช้เซิร์ฟเวอร์ ASP.NET ที่ตรวจสิทธิ์ผู้ใช้ก่อนเขียนรีวิว ไม่เผย connection string หรือรหัสผ่านฐานข้อมูลไป frontend
+
+การกู้รหัสผ่านใช้ Data Protection ของ ASP.NET และ SMTP แยกจากฐานข้อมูล Supabase ดูหัวข้อ SMTP ใน README ต้องเก็บ Data Protection keys ให้คงอยู่บนเซิร์ฟเวอร์เพื่อให้ลิงก์ยังตรวจสอบได้หลังรีสตาร์ต ไม่จำเป็นต้องใช้ Supabase Auth กับระบบบัญชีเดิมนี้
+
+อ้างอิงทางเทคนิค: [Supabase PostgreSQL connection](https://supabase.com/docs/guides/database/connecting-to-postgres) และ [ASP.NET time-limited Data Protection](https://learn.microsoft.com/en-us/aspnet/core/security/data-protection/consumer-apis/limited-lifetime-payloads?view=aspnetcore-10.0)

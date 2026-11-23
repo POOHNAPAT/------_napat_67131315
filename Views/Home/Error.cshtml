@@ -1,2 +1,4 @@
-@{ViewData["Title"]="เกิดข้อผิดพลาด";}
-<section class="form-panel"><h1>ยังทำรายการไม่ได้ในขณะนี้</h1><p>กรุณาลองใหม่อีกครั้ง หากเพิ่งยืนยันการจอง ให้ตรวจประวัติการจองก่อนทำรายการซ้ำ</p><a class="button" asp-controller="Bookings" asp-action="History">ตรวจประวัติการจอง</a></section>
+@{var reportForm=new DamageReportForm{Category="Other"};ViewData["Title"]="แจ้งปัญหาการใช้งาน";}
+<section class="form-panel"><h1>พบปัญหาในการใช้งาน?</h1><p>แจ้งรายละเอียดปัญหา สนาม หรืออุปกรณ์ที่ต้องการให้ผู้ดูแลตรวจสอบได้ด้านล่าง</p>
+@if(User.IsInRole("Member")){<partial name="_GeneralReportForm" model="reportForm"/>}else if(User.IsInRole("Admin")){<a class="button" asp-controller="Admin" asp-action="DamageReports">ดูข้อความแจ้งปัญหาจากลูกค้า</a>}else{<p class="help">กรุณาเข้าสู่ระบบเพื่อส่งข้อความและติดตามคำตอบ</p><a class="button" asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Bookings/ReportDamage">เข้าสู่ระบบเพื่อแจ้งปัญหา</a>}
+<p class="help">หากเพิ่งส่งคำขอจอง กรุณาตรวจประวัติการจองก่อนทำรายการซ้ำ</p><a class="inline-link" asp-controller="Bookings" asp-action="History">ตรวจประวัติการจอง</a></section>

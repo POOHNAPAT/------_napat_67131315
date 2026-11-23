@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews(options =>
@@ -14,6 +15,13 @@ builder.Services.AddControllersWithViews(options =>
     options.ModelBinderProviders.Insert(0, new IsoDateModelBinder());
 });
 builder.Services.AddSingleton<BookingStore>();
+builder.Services.AddSingleton<AccountRecovery>();
+builder.Services.AddRateLimiter(options=>{
+    options.RejectionStatusCode=429;
+    options.AddPolicy("account-recovery",context=>RateLimitPartition.GetFixedWindowLimiter(
+        (context.Connection.RemoteIpAddress?.ToString()??"unknown")+context.Request.Path.ToString(),
+        _=>new FixedWindowRateLimiterOptions{PermitLimit=5,Window=TimeSpan.FromMinutes(15),QueueLimit=0}));
+});
 var adminPort = builder.Configuration.GetValue<int>("Portals:AdminPort");
 var authentication = builder.Services.AddAuthentication("Portal")
     .AddPolicyScheme("Portal", null, options => options.ForwardDefaultSelector = context =>
@@ -31,6 +39,7 @@ authentication.AddCookie(scheme, options =>
         var user = long.TryParse(id, out var userId)
             ? context.HttpContext.RequestServices.GetRequiredService<BookingStore>().FindUser(userId) : null;
         if (user is null || context.Principal?.FindFirstValue(ClaimTypes.Role) != user.Role
+            || context.Principal?.FindFirstValue("PasswordVersion") != AccountRecovery.Version(user)
             || (context.Scheme.Name == "AdminPortal") != (user.Role == "Admin"))
         {
             context.RejectPrincipal();
@@ -38,6 +47,12 @@ authentication.AddCookie(scheme, options =>
         }
     };
 });
+var keyDirectory=builder.Configuration["DataProtection:KeyDirectory"];
+if(!string.IsNullOrWhiteSpace(keyDirectory)&&!builder.Environment.IsEnvironment("Testing"))
+{
+    Directory.CreateDirectory(keyDirectory);
+    builder.Services.AddDataProtection().SetApplicationName("COURTBOOK").PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
+}
 // Only the isolated automated test process uses in-memory cookie keys.
 if (builder.Environment.IsEnvironment("Testing"))
 {
@@ -53,6 +68,7 @@ if (!app.Environment.IsDevelopment() && !app.Environment.IsEnvironment("Testing"
     app.UseExceptionHandler("/Home/Error");
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.Use(async (context, next) =>
 {
     var admin = context.Connection.LocalPort == adminPort;
@@ -66,9 +82,9 @@ app.Use(async (context, next) =>
         context.Response.Redirect("/Admin");
         return;
     }
-    var accountPage = controller == "Account" && action is "Login" or "Logout" or "Denied" or "Profile";
+    var accountPage = controller == "Account" && action is "Login" or "Logout" or "Denied" or "Profile" or "EditProfile" or "ForgotPassword" or "ResetPassword";
     if ((!admin && controller == "Admin") || (admin && controller != "Admin" && !accountPage
-        && !(controller == "Home" && action == "Error") && !(controller == "Courts" && action == "Image")))
+        && !(controller == "Home" && action == "Error") && !(controller == "Courts" && action == "Image") && context.Request.Path!="/healthz"))
     {
         context.Response.StatusCode = StatusCodes.Status404NotFound;
         return;
@@ -77,5 +93,6 @@ app.Use(async (context, next) =>
 });
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapGet("/healthz",()=>Results.Text("ok")).AllowAnonymous();
 app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}");
 app.Run();

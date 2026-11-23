@@ -12,7 +12,7 @@ import sqlite3
 
 TABLES = (
     "Users", "SportTypes", "Courts", "Promotions", "Bookings", "BookedSlots",
-    "BlockedSlots", "TopUps", "MembershipPlans", "Memberships", "WalletEntries", "DemoPayments",
+    "BlockedSlots", "TopUps", "MembershipPlans", "Memberships", "WalletEntries", "DemoPayments", "RentalEquipment", "CourtReviews", "DamageReports", "PaymentReceipts", "Expenses", "BookingRefunds", "MembershipQuotaUses",
 )
 
 
@@ -59,6 +59,9 @@ def export(source, output):
             # Earlier versions may lack the wallet and demo payment tables.
             cursor = snapshot.execute(f'SELECT * FROM "{table}"') if table.lower() in available else None
             columns = [column[0] for column in cursor.description] if cursor else []
+            if table == "DamageReports" and "BookingId" in columns and "UserId" not in columns:
+                cursor = snapshot.execute("SELECT d.*,b.UserId,b.CourtName AS Subject FROM DamageReports d JOIN Bookings b ON b.Id=d.BookingId")
+                columns = [column[0] for column in cursor.description]
             # Names come from this app's schema, not user input.
             if any(not re.fullmatch(r"[A-Za-z][A-Za-z0-9]*", column) for column in columns):
                 raise ValueError(f"Unexpected column name in {table}")
@@ -66,7 +69,7 @@ def export(source, output):
             for row in cursor if cursor is not None else ():
                 statements.append(f"INSERT INTO {table}({','.join(columns)}) VALUES({','.join(map(literal, row))});")
                 counts[table] += 1
-            if table not in ("BookedSlots", "BlockedSlots", "MembershipPlans", "DemoPayments"):
+            if table not in ("BookedSlots", "BlockedSlots", "MembershipPlans", "DemoPayments", "RentalEquipment", "CourtReviews", "PaymentReceipts"):
                 statements.append(f"SELECT setval(pg_get_serial_sequence('{table.lower()}','id'),COALESCE((SELECT MAX(Id) FROM {table}),1),EXISTS(SELECT 1 FROM {table}));")
             statements.append(f"DO $$ BEGIN IF (SELECT COUNT(*) FROM {table}) <> {counts[table]} THEN RAISE EXCEPTION 'Row count mismatch: {table}'; END IF; END $$;")
         statements.append("COMMIT;")

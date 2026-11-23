@@ -9,8 +9,115 @@ namespace CourtBook.Controllers;
 [Authorize(Roles = "Admin")]
 public class AdminController(BookingStore store) : Controller
 {
+    [HttpGet] public IActionResult Equipment() => View(store.Equipment(includeInactive: true));
+    [HttpGet]
+    public IActionResult EquipmentItem(string id = "")
+    {
+        ViewBag.SportTypes = store.SportTypes();
+        if (id.Length == 0) return View(new EquipmentForm());
+        var item = store.Equipment(includeInactive: true).SingleOrDefault(e => e.Id == id);
+        return item is null ? NotFound() : View(new EquipmentForm {
+            Id=item.Id, SportTypeId=item.SportTypeId, Name=item.Name, Unit=item.Unit, ImageUrl=item.ImageUrl,
+            Price=item.PriceSatang/100m, IsActive=item.IsActive });
+    }
+    [HttpPost]
+    public IActionResult EquipmentItem(EquipmentForm form)
+    {
+        ViewBag.SportTypes = store.SportTypes();
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                if (!store.SaveEquipment(form)) return NotFound();
+                TempData["Success"] = "บันทึกอุปกรณ์เรียบร้อยแล้ว รายการจองเดิมยังคงชื่อและราคาเดิม";
+                return RedirectToAction(nameof(Equipment));
+            }
+            catch (BookingRuleException ex) { ModelState.AddModelError("", ex.Message); }
+        }
+        return View(form);
+    }
+    [HttpGet]
+    public IActionResult DamageReports(string? status)
+    {
+        if(!string.IsNullOrEmpty(status)&&!DamageReport.Statuses.Contains(status))return BadRequest();
+        return View(new DamageReportListPage(store.DamageReports(status:status),status));
+    }
+    [HttpPost]
+    public IActionResult UpdateDamageReport(long id,DamageReportUpdate form)
+    {
+        if(!ModelState.IsValid){TempData["Error"]="สถานะหรือหมายเหตุไม่ถูกต้อง";return RedirectToAction(nameof(DamageReports));}
+        try
+        {
+            if(!store.UpdateDamageReport(id,AdminId,form))return NotFound();
+            TempData["Success"]="อัปเดตรายงานแล้ว ลูกค้าจะเห็นสถานะและหมายเหตุล่าสุด";
+        }
+        catch(BookingRuleException ex){TempData["Error"]=ex.Message;}
+        return RedirectToAction(nameof(DamageReports));
+    }
+    [HttpGet]
+    public IActionResult Receipt(string id)
+    {
+        Response.Headers["Cache-Control"]="no-store";
+        var receipt=store.FindReceipt(id,null);return receipt is null?NotFound():View("Receipt",receipt);
+    }
+    [HttpGet]
+    public IActionResult Accounting(DateOnly? from,DateOnly? to)
+    {
+        Response.Headers["Cache-Control"]="no-store";
+        if(!ModelState.IsValid)return BadRequest();
+        try{return View(store.Accounting(from??new DateOnly(CourtTime.Today.Year,CourtTime.Today.Month,1),to??CourtTime.Today));}
+        catch(BookingRuleException ex){return BadRequest(ex.Message);}
+    }
+    [HttpGet]
+    public IActionResult AccountingExport(DateOnly? from,DateOnly? to)
+    {
+        Response.Headers["Cache-Control"]="no-store";
+        if(!ModelState.IsValid)return BadRequest();
+        try
+        {
+            var page=store.Accounting(from??new DateOnly(CourtTime.Today.Year,CourtTime.Today.Month,1),to??CourtTime.Today);
+            return File(AccountingCsv.Export(page,true),"text/csv; charset=utf-8",$"courtbook-account-{CourtTime.Iso(page.From)}-{CourtTime.Iso(page.To)}.csv");
+        }
+        catch(BookingRuleException ex){return BadRequest(ex.Message);}
+    }
+    [HttpGet]
+    public IActionResult Expenses(DateOnly? from,DateOnly? to)
+    {
+        if(!ModelState.IsValid)return BadRequest();
+        try{var start=from??new DateOnly(CourtTime.Today.Year,CourtTime.Today.Month,1);var end=to??CourtTime.Today;return View(new ExpensePage(new ExpenseForm(),store.Expenses(start,end),start,end));}
+        catch(BookingRuleException ex){return BadRequest(ex.Message);}
+    }
+    [HttpPost]
+    public IActionResult Expenses(ExpenseForm form)
+    {
+        if(ModelState.IsValid)try{store.AddExpense(AdminId,form);TempData["Success"]="บันทึกรายจ่ายแล้ว";return RedirectToAction(nameof(Expenses));}
+        catch(BookingRuleException ex){ModelState.AddModelError("",ex.Message);}
+        return View(new ExpensePage(form,store.Expenses(new DateOnly(CourtTime.Today.Year,CourtTime.Today.Month,1),CourtTime.Today)));
+    }
+    [HttpPost]
+    public IActionResult VoidExpense(long id,string reason)
+    {
+        if(!ModelState.IsValid)return BadRequest();
+        try{if(!store.VoidExpense(id,AdminId,reason))return NotFound();TempData["Success"]="ยกเลิกรายจ่ายแล้ว ประวัติและเหตุผลยังคงอยู่";}
+        catch(BookingRuleException ex){TempData["Error"]=ex.Message;}
+        return RedirectToAction(nameof(Expenses));
+    }
+    [HttpGet]
+    public IActionResult Refunds(string? status)
+    {
+        if(!string.IsNullOrEmpty(status)&&status is not ("Pending" or "Approved" or "Rejected"))return BadRequest();
+        return View(new RefundPage(store.Refunds(status:status),status));
+    }
+    [HttpPost]
+    public IActionResult ReviewRefund(long id,bool approve,string? note)
+    {
+        if(!ModelState.IsValid)return BadRequest();
+        try{if(!store.ReviewRefund(id,AdminId,approve,note))return NotFound();TempData["Success"]=approve?"คืนยอดเข้ากระเป๋าและยกเลิกการจองแล้ว":"ไม่อนุมัติคำขอคืนเงินแล้ว";}
+        catch(BookingRuleException ex){TempData["Error"]=ex.Message;}
+        return RedirectToAction(nameof(Refunds));
+    }
     private long AdminId => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-    [HttpGet] public IActionResult Plans() => View(store.Plans());
+    [HttpGet] public IActionResult Plans(){ViewBag.QuotaSports=store.SportTypes();return View(store.Plans());}
     [HttpPost]
     public IActionResult Plans(PlanForm form)
     {
@@ -19,7 +126,7 @@ public class AdminController(BookingStore store) : Controller
             try { if(!store.SavePlan(form)) return NotFound(); TempData["Success"]="บันทึกแพ็กแล้ว สิทธิ์ที่ซื้อไปแล้วจะคงเงื่อนไขเดิม"; return RedirectToAction(nameof(Plans)); }
             catch(BookingRuleException ex) { ModelState.AddModelError("",ex.Message); }
         }
-        return View(store.Plans());
+        ViewBag.QuotaSports=store.SportTypes();return View(store.Plans());
     }
     [HttpGet] public IActionResult TopUps() => View(store.TopUps());
     [HttpPost]
@@ -44,8 +151,23 @@ public class AdminController(BookingStore store) : Controller
         return File(image.Data,image.ContentType);
     }
     public IActionResult Customers() => View(store.Customers());
+    [HttpPost]
+    public IActionResult LockCustomer(long id,bool locked)
+    {
+        if(!store.SetCustomerLocked(id,locked))return NotFound();
+        TempData["Success"]=locked?"ระงับการเข้าสู่ระบบสมาชิกแล้ว":"เปิดการเข้าสู่ระบบสมาชิกแล้ว";
+        return RedirectToAction(nameof(Customer),new{id});
+    }
+    public IActionResult Revenue(DateOnly? from,DateOnly? to)
+    {
+        var start=from??CourtTime.Today.AddDays(-29);var end=to??CourtTime.Today;
+        if(!ModelState.IsValid)return BadRequest();
+        try{return View(store.Revenue(start,end));}
+        catch(BookingRuleException ex){TempData["Error"]=ex.Message;return RedirectToAction(nameof(Index));}
+    }
     public IActionResult Customer(long id)
     {
+        ViewBag.IsLocked=store.CustomerLocked(id);
         var account = store.Customers().SingleOrDefault(c => c.Id == id);
         return account is null ? NotFound() : View(new CustomerPage(account, store.Bookings(id)));
     }
@@ -96,7 +218,7 @@ public class AdminController(BookingStore store) : Controller
         ViewBag.SportTypes = store.SportTypes();
         if (id == 0) return View(new CourtForm());
         var court = store.FindCourt(id);
-        return court is null ? NotFound() : View(new CourtForm { Id=court.Id,Name=court.Name,Description=court.Description,Price=court.PriceSatang/100m,IsActive=court.IsActive,SportTypeId=court.SportTypeId,CurrentImageUrl=court.ImageUrl });
+        return court is null ? NotFound() : View(new CourtForm { Id=court.Id,Name=court.Name,Location=court.Location,Description=court.Description,Price=court.PriceSatang/100m,IsActive=court.IsActive,SportTypeId=court.SportTypeId,CurrentImageUrl=court.ImageUrl });
     }
     [HttpPost]
     [RequestSizeLimit(6 * 1024 * 1024)]
@@ -162,7 +284,7 @@ public class AdminController(BookingStore store) : Controller
         var promo=store.Promotions(true).SingleOrDefault(p=>p.Id==id);
         return promo is null ? NotFound() : View(new PromotionForm {
             Id=promo.Id,Name=promo.Name,Rule=promo.Rule,Kind=promo.Kind,Value=promo.Value100/100m,MinHours=promo.MinHours,
-            MinDays=promo.MinDays,MinSpend=promo.MinSpendSatang/100m,Starts=promo.Starts,Ends=promo.Ends,IsActive=promo.IsActive });
+            MinDays=promo.MinDays,MinPlayers=promo.MinPlayers,MinSpend=promo.MinSpendSatang/100m,Starts=promo.Starts,Ends=promo.Ends,IsActive=promo.IsActive });
     }
     [HttpPost]
     public IActionResult Promotion([FromRoute] long id, PromotionForm form)

@@ -11,7 +11,8 @@ public class BookingsController(BookingStore store) : Controller
 {
     private long UserId => long.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     private BookingPage Page(BookingForm form) => new(form, store.Courts(), store.FindCourt(form.CourtId) is Court court
-        ? store.Slots(court, form.Date) : [], store.Promotions());
+        ? store.Slots(court, form.Date) : [], store.Promotions(),
+        store.FindCourt(form.CourtId) is Court selected ? store.Equipment(selected.SportTypeId) : []);
 
     [HttpGet]
     public IActionResult Create(long? courtId, DateOnly? date, int? hour, long? promotionId)
@@ -42,7 +43,7 @@ public class BookingsController(BookingStore store) : Controller
         try
         {
             if (!store.PayBookingWithWallet(id,UserId)) return NotFound();
-            TempData["Success"]="ชำระค่าจองจากกระเป๋าเงินแล้ว สถานะการจองรอผู้ดูแลยืนยันตามเดิม";
+            TempData["Success"]="ชำระค่าจองจากกระเป๋าเงินสำเร็จและออกใบเสร็จแล้ว กรุณาตรวจสถานะการยืนยันการจองในรายละเอียด";
         }
         catch(BookingRuleException ex) { TempData["Error"]=ex.Message; }
         return RedirectToAction(nameof(Result),new { id });
@@ -88,6 +89,25 @@ public class BookingsController(BookingStore store) : Controller
         }
         catch (BookingRuleException ex) { TempData["Error"] = ex.Message; }
         return RedirectToAction(nameof(Result), new { id });
+    }
+    [HttpGet,Authorize(Roles="Member")]
+    public IActionResult ReportDamage(long? id)
+    {
+        var booking=id.HasValue?store.Bookings(UserId).SingleOrDefault(b=>b.Id==id):null;
+        if(id.HasValue&&booking is null)return NotFound();
+        return View(new DamageReportPage(booking,new DamageReportForm{Category=id.HasValue?"Court":"Other"},store.DamageReports(UserId,id)));
+    }
+    [HttpPost,Authorize(Roles="Member")]
+    public IActionResult ReportDamage(long? id,DamageReportForm form)
+    {
+        var booking=id.HasValue?store.Bookings(UserId).SingleOrDefault(b=>b.Id==id):null;
+        if(id.HasValue&&booking is null)return NotFound();
+        if(ModelState.IsValid)
+        {
+            try{store.ReportDamage(UserId,id,form);TempData["Success"]="ส่งปัญหาให้ผู้ดูแลแล้ว คุณติดตามคำตอบและสถานะได้ที่หน้านี้";return RedirectToAction(nameof(ReportDamage),new{id});}
+            catch(BookingRuleException ex){ModelState.AddModelError("",ex.Message);}
+        }
+        return View(new DamageReportPage(booking,form,store.DamageReports(UserId,id)));
     }
     public IActionResult History(DateOnly? date, string? status)
     {

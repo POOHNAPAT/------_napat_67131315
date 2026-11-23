@@ -194,6 +194,18 @@ def run():
                 check('StartDemoPayment' not in demo.request('/Wallet')[2],'Disabled demo payment is hidden from wallet')
                 check(demo.post('/Wallet/StartDemoPayment',{'Amount':'10'},token_page='/Wallet')[0]==404 and demo.request('/Wallet/DemoPayment/'+off_id)[0]==404 and finish_demo(off_id,'Paid')[0]==404,'Disabled demo payment rejects all demo endpoints')
                 check(demo_balance()==(51025,2),'Demo wallet credit persists after process restart')
+                # Slip uploads no longer require a manually entered bank reference.
+                member=Browser(base); member.login('wallet@example.com')
+                result=f'/Bookings/Result/{unpaid}'
+                check('name="TransferReference"' not in member.request(result)[2] and 'name="TransferReference"' not in member.request('/Wallet')[2],'Booking and wallet forms omit the transfer reference input')
+                member.upload(f'/Bookings/SubmitPayment/{unpaid}',{},png+b'no-reference-booking',file_field='Slip',token_page=result)
+                check(sql('SELECT SlipData,PaidAt FROM Bookings WHERE Id=?',(unpaid,))[0]==(png+b'no-reference-booking',None),'Booking accepts a slip without a transfer reference and still requires review')
+                count=sql('SELECT COUNT(*) FROM TopUps')[0][0]
+                for suffix in [b'no-ref-one',b'no-ref-two',b'no-ref-one',b'no-reference-booking']:
+                    member.upload('/Wallet/TopUp',{'Amount':'10'},png+suffix,file_field='Slip',token_page='/Wallet')
+                check(sql('SELECT COUNT(*) FROM TopUps')[0][0]==count+2,'Distinct slips work without bank references while duplicate and booking slips remain blocked')
+                member.upload(f'/Bookings/SubmitPayment/{unpaid}',{},png+b'no-ref-one',file_field='Slip',token_page=result)
+                check(sql('SELECT SlipData FROM Bookings WHERE Id=?',(unpaid,))[0][0]==png+b'no-reference-booking','Top-up slip cannot replace booking proof when bank references are omitted')
                 print('ALL WALLET AND DEMO PAYMENT CHECKS PASSED',flush=True)
             except Exception:
                 stop(); log.flush(); print((Path(temp)/'server.log').read_text(encoding='utf-8')[-7000:]); raise

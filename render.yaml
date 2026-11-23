@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: courtbook-customer
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: COURTBOOK_PORTAL
+        value: Customer
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: ConnectionStrings__Supabase
+        sync: false
+      - key: Bootstrap__AdminEmail
+        sync: false
+      - key: Bootstrap__AdminPassword
+        sync: false
+  - type: web
+    name: courtbook-admin
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: COURTBOOK_PORTAL
+        value: Admin
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      - key: ConnectionStrings__Supabase
+        sync: false
+      - key: Bootstrap__AdminEmail
+        sync: false
+      - key: Bootstrap__AdminPassword
+        sync: false

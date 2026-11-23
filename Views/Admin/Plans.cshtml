@@ -1,12 +1,15 @@
 @model IReadOnlyList<MembershipPlan>
 @{ViewData["Title"]="จัดการแพ็กสมาชิก";}
-<div class="page-heading"><p class="eyebrow">MEMBERSHIP PLANS</p><h1>จัดการแพ็กสมาชิก</h1><p>กำหนดราคาและส่วนลดก่อนเปิดขาย การเปลี่ยนแปลงมีผลกับการซื้อใหม่เท่านั้น</p></div>
+<div class="page-heading"><p class="eyebrow">MEMBERSHIP PLANS</p><h1>จัดการแพ็กสมาชิก</h1><p>กำหนดราคา ชั่วโมงสนามต่อเดือน ประเภทกีฬา และส่วนลดก่อนเปิดขาย การเปลี่ยนแปลงมีผลกับการซื้อใหม่เท่านั้น</p></div>
 <div asp-validation-summary="All" class="validation alert" role="alert"></div>
 <div class="admin-court-grid">
 @foreach(var plan in Model){<section class="panel"><h2>@plan.Name</h2><form asp-action="Plans" method="post">
-<input type="hidden" name="Id" value="@plan.Id"/>
+<input type="hidden" name="Id" value="@plan.Id"/><input type="hidden" name="Months" value="@plan.Months"/><p class="help">ระยะเวลา @plan.Months เดือน</p>
 <label for="price-@plan.Id">ราคาแพ็ก (บาท) / @plan.Months เดือน</label><input id="price-@plan.Id" name="Price" type="number" min="1" max="1000000" step="0.01" value="@((plan.PriceSatang/100m).ToString(System.Globalization.CultureInfo.InvariantCulture))" required/>
-<label for="discount-@plan.Id">ส่วนลดค่าจอง (%)</label><input id="discount-@plan.Id" name="DiscountPercent" type="number" min="1" max="100" value="@plan.DiscountPercent" required/>
+<label for="quota-@plan.Id">ชั่วโมงสนามที่รวมในแพ็ก / เดือน</label><input id="quota-@plan.Id" name="MonthlyHours" type="number" min="0" max="100" value="@plan.MonthlyHours" required/>
+<label for="sport-@plan.Id">ประเภทกีฬาสำหรับโควตาและส่วนลดส่วนเกิน</label><select id="sport-@plan.Id" name="QuotaSportTypeId"><option value="0">เลือกประเภทกีฬาเมื่อให้โควตา</option>@foreach(var sport in (IReadOnlyList<SportType>)ViewBag.QuotaSports){<option value="@sport.Id" selected="@(sport.Id==plan.QuotaSportTypeId)">@sport.Name</option>}</select>
+<p class="help">ตั้ง 0 ชั่วโมงเพื่อใช้แพ็กส่วนลดแบบเดิม หากให้โควตาต้องเลือกกีฬา ใช้ได้ทุกสนามในกีฬาที่เลือก</p>
+<label for="discount-@plan.Id">ส่วนลดค่าจองส่วนเกินโควตา (%)</label><input id="discount-@plan.Id" name="DiscountPercent" type="number" min="1" max="100" value="@plan.DiscountPercent" required/>
 <label class="checkbox"><input type="checkbox" name="IsActive" value="true" checked="@plan.IsActive"/> เปิดขาย</label>
 <button class="button" type="submit">บันทึก@(plan.Name)</button></form></section>}
-</div><p class="help">ลูกค้าซื้อได้ครั้งละ 1 แพ็กที่ใช้งานอยู่ สิทธิ์เป็นส่วนลดค่าจอง ไม่ใช่ชั่วโมงเล่นฟรี และไม่รวมซ้อนกับโปรโมชั่น</p>
+</div><p class="help">ลูกค้าซื้อได้ครั้งละ 1 แพ็กที่ใช้งานอยู่ ชั่วโมงคิดตามวันที่เล่น รอบโควตาเริ่มจากวันซื้อแพ็ก ไม่ทบยอด ไม่รวมอุปกรณ์ และไม่รวมซ้อนกับโปรโมชั่น</p>

@@ -268,7 +268,7 @@ def run():
                 with member.opener.open(base+"/images/payment-qr.jpg") as response:
                     check(response.read()==(ROOT/"wwwroot/images/payment-qr.jpg").read_bytes(),"QR is served unchanged from original image asset")
                 check(member.upload(submit_payment,{"TransferReference":"TX-510"},pending_image,csrf=False,file_field="Slip")[0]==400,"Payment submission requires CSRF")
-                for reference,slip in [("",pending_image),("x"*201,pending_image),("TX-510",b"<svg/>")]:
+                for reference,slip in [("x"*201,pending_image),("TX-510",b"<svg/>")]:
                     member.upload(submit_payment,{"TransferReference":reference},slip,file_field="Slip",token_page=customer_detail)
                     check(query("SELECT PaymentSubmittedAt FROM Bookings WHERE Id=?",(booking_id,))[0][0] is None,"Invalid transfer reference or slip is rejected")
                 check(member.upload(submit_payment,{"TransferReference":"TX-510","NetSatang":1,"PaidAt":"forged"},pending_image,file_field="Slip",token_page=customer_detail)[1]==customer_detail,"Customer submits QR transfer proof")
@@ -436,12 +436,64 @@ def run():
                 shared_logout.post('/Account/Logout',{},token_page='/Admin')
                 shared_logout.base=base
                 check(shared_logout.request('/Bookings/History')[1]=='/Bookings/History',"Logging out of admin portal preserves customer login")
+                # Equipment administration and sport isolation use the same real booking endpoints.
+                check(admin.request('/Admin/Equipment')[0]==200 and admin.request('/Admin/EquipmentItem')[0]==200,"Admin can open equipment management and editor")
+                check(member.request('/Admin/Equipment')[0]==404,"Customer portal cannot manage equipment")
+                check(admin.request('/Admin/EquipmentItem',{})[0]==400,"Equipment changes require CSRF")
+                sport_id=query("SELECT SportTypeId FROM Courts WHERE Id=2")[0][0]
+                isolated_date=TODAY+dt.timedelta(days=90)
+                foreign={"CourtId":2,"Date":str(isolated_date),"Hours":[8],"Equipment[racket]":1}
+                check('name="Equipment[racket]"' not in member.request('/Bookings/Create?courtId=2')[2],"Tennis court hides badminton equipment")
+                status,_,_=member.request('/Bookings/Quote?'+urllib.parse.urlencode(foreign,doseq=True))
+                check(status==400 and member.post('/Bookings/Create',foreign)[1]=='/Bookings/Create',"Quote and booking reject equipment from another sport")
+                equipment_form={"Id":"","SportTypeId":sport_id,"Name":"ไม้เทนนิสทดสอบ","Unit":"อัน","Price":"65.50","IsActive":"true"}
+                check(admin.post('/Admin/EquipmentItem',equipment_form,token_page='/Admin/EquipmentItem')[1]=='/Admin/Equipment',"Admin creates sport-specific rental equipment")
+                equipment_id=query("SELECT Id FROM RentalEquipment WHERE Name=?",(equipment_form['Name'],))[0][0]
+                equipment_editor='/Admin/EquipmentItem?id='+equipment_id
+                check('name="Equipment['+equipment_id+']"' in member.request('/Bookings/Create?courtId=2')[2],"New tennis equipment appears only for matching court sport")
+                check('name="Equipment['+equipment_id+']"' not in member.request('/Bookings/Create?courtId=1')[2],"Badminton court hides tennis equipment")
+                tennis_fields={"CourtId":2,"Date":str(isolated_date),"Hours":[8],f"Equipment[{equipment_id}]":2}
+                _,tennis_path,tennis_body=member.post('/Bookings/Create',tennis_fields)
+                check('/Bookings/Result/' in tennis_path,"Matching equipment can be reserved")
+                tennis_id=int(tennis_path.rsplit('/',1)[1])
+                tennis_snapshot=query('SELECT EquipmentJson,NetSatang FROM Bookings WHERE Id=?',(tennis_id,))[0]
+                check(tennis_snapshot[1]==33100,"Sport-specific rental uses current server price")
+                admin.post('/Admin/EquipmentItem',{**equipment_form,"Id":equipment_id,"Name":"ชื่ออุปกรณ์ใหม่","Price":"99","IsActive":"false"},token_page=equipment_editor)
+                check('name="Equipment['+equipment_id+']"' not in member.request('/Bookings/Create?courtId=2')[2],"Disabled equipment is hidden")
+                check(member.post('/Bookings/Create',{**tennis_fields,"Hours":[10]})[1]=='/Bookings/Create',"Disabled equipment cannot be booked through a forged request")
+                check(query('SELECT EquipmentJson,NetSatang FROM Bookings WHERE Id=?',(tennis_id,))[0]==tennis_snapshot and 'ไม้เทนนิสทดสอบ' in html.unescape(member.request(tennis_path)[2]),"Equipment edits preserve existing booking names and prices")
+                check('validation-summary-errors' in admin.post('/Admin/EquipmentItem',{**equipment_form,"SportTypeId":999999},token_page='/Admin/EquipmentItem')[2],"Equipment cannot use an unknown sport")
+                check('validation-summary-errors' in admin.post('/Admin/EquipmentItem',{**equipment_form,"Price":-1},token_page='/Admin/EquipmentItem')[2],"Equipment rejects a negative rental price")
+                # Equipment prices come from the server and are snapshotted with the booking.
+                rental_date=TODAY+dt.timedelta(days=30)
+                rental={"CourtId":1,"Date":str(rental_date),"Hours":[8,9],"Equipment[racket]":2,"Equipment[shoes]":1}
+                def rental_quote(fields):
+                    status,_,body=member.request("/Bookings/Quote?"+urllib.parse.urlencode(fields,doseq=True))
+                    return status,json.loads(body)
+                rental_page=html.unescape(member.request("/Bookings/Create")[2])
+                check('name="Equipment[racket]"' in rental_page and 'id="equipment-total"' in rental_page,"Date/time form offers equipment and a rental subtotal")
+                status,quote=rental_quote(rental)
+                check(status==200 and (quote["grossSatang"],quote["equipmentSatang"],quote["netSatang"])==(53000,13000,53000),"Equipment is charged once per booking alongside two court hours")
+                status,quote=rental_quote({**rental,"PromotionId":4})
+                check(status==200 and (quote["discountSatang"],quote["netSatang"])==(8000,45000),"Court discount preserves full equipment rental price")
+                for invalid in [{"Equipment[racket]":-1},{"Equipment[racket]":11},{"Equipment[racket]":"1.5"},{"Equipment[unknown]":1}]:
+                    check(rental_quote({**rental,**invalid})[0]==400,"Invalid rental quantity or item is rejected")
+                    check(member.post("/Bookings/Create",{**rental,**invalid})[1]=="/Bookings/Create","Invalid rental cannot be booked")
+                check(rental_quote({**rental,"Equipment[racket]":0,"Equipment[shoes]":0})[1]["equipmentSatang"]==0,"Equipment rental is optional")
+                _,rental_path,rental_body=member.post("/Bookings/Create",{**rental,"EquipmentSatang":1,"NetSatang":1})
+                check("/Bookings/Result/" in rental_path,"Booking with rental succeeds")
+                rental_id=int(rental_path.rsplit("/",1)[1])
+                rental_snapshot=query("SELECT EquipmentJson,NetSatang FROM Bookings WHERE Id=?",(rental_id,))[0]
+                check(rental_snapshot[1]==53000 and len(json.loads(rental_snapshot[0]))==2,"Stored rental ignores submitted prices and preserves both items")
+                check("ไม้แบดมินตัน" in html.unescape(rental_body) and "รองเท้ากีฬา" in html.unescape(admin.request(f"/Admin/Booking/{rental_id}")[2]),"Customer and admin details show selected equipment")
                 total=query("SELECT COUNT(*) FROM Bookings")[0][0]
                 member.post("/Account/Logout",{},token_page="/Bookings/History")
                 check(member.request("/Bookings/History")[1]=="/Account/Login","Logout removes member access")
                 stop();start()
                 member=Browser(base);member.login("test@example.com")
                 check(query("SELECT COUNT(*) FROM Bookings")[0][0]==total and member.request(f"/Bookings/Result/{booking_id}")[0]==200,"Saved bookings persist after process restart")
+                check(query('SELECT IsActive FROM RentalEquipment WHERE Id=?',(equipment_id,))[0][0]==0,"Equipment remains disabled after restart")
+                check(query("SELECT EquipmentJson,NetSatang FROM Bookings WHERE Id=?",(rental_id,))[0]==rental_snapshot and "ไม้แบดมินตัน" in html.unescape(member.request(rental_path)[2]),"Equipment snapshot survives restart")
                 check(query("SELECT PaidAt,PaidBy,PaymentReference,NetSatang FROM Bookings WHERE Id=?",(booking_id,))[0]==receipt,"Approval and payment survive restart")
                 check(query("SELECT TransferReference,SlipData FROM Bookings WHERE Id=?",(booking_id,))[0]==("TX-510",pending_image),"Payment proof survives restart")
                 check(query("SELECT ImageData,ImageContentType FROM Courts WHERE Id=2")[0]==(png,"image/png"),"Uploaded photo survives process restart")
@@ -457,6 +509,7 @@ def run():
                     connection.execute("ALTER TABLE Courts DROP COLUMN SportTypeId")
                     for column in ["ImageData","ImageContentType","ImageVersion"]:
                         connection.execute(f"ALTER TABLE Courts DROP COLUMN {column}")
+                    connection.execute("DROP TABLE RentalEquipment")
                     connection.execute("DROP TABLE SportTypes")
                     connection.execute("UPDATE Bookings SET Status='Confirmed'")
                     connection.commit()

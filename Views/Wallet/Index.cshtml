@@ -1,55 +1,38 @@
 @model WalletPage
-@{ViewData["Title"]="กระเป๋าเงินและแพ็กสมาชิก";}
-<div class="page-heading"><p class="eyebrow">WALLET & MEMBERSHIP</p><h1>กระเป๋าเงินและแพ็กสมาชิก</h1><p>เติมเงินไว้ชำระค่าจองหรือซื้อแพ็กส่วนลด</p></div>
+@{ViewData["Title"]="กระเป๋าเงิน";}
+<div class="page-heading"><p class="eyebrow">WALLET & MEMBERSHIP</p><h1>กระเป๋าเงิน</h1><p>เติมเงินและจัดการยอดสำหรับชำระค่าจอง</p></div>
+<p class="action-group"><a class="button secondary" asp-controller="Accounting" asp-action="Index">บัญชีและการชำระเงิน</a><a class="button secondary" asp-controller="Receipts" asp-action="Index">ใบเสร็จของฉัน</a></p>
 <div asp-validation-summary="All" class="validation alert" role="alert"></div>
 <section class="panel"><p class="eyebrow">YOUR BALANCE</p><h2>ยอดคงเหลือ ฿@CourtTime.Money(Model.BalanceSatang)</h2><p>ใช้ชำระค่าจองในหน้ารายละเอียดการจองได้ โดยเลือกจ่ายจากกระเป๋าเงิน</p>
-<div class="action-row"><a class="button" href="#topup">เติมเงินเข้ากระเป๋า</a><a class="button secondary" href="#topup-history">ติดตามคำขอเติมเงิน</a></div>
-@if(Model.Membership is Membership member){<p class="alert success">@member.Name · ลดค่าจอง @member.DiscountPercent%<br/>เริ่ม @CourtTime.Display(member.Starts) · ใช้ได้ถึง @CourtTime.Display(member.Ends.AddDays(-1))</p>}
+<div class="action-row"><a class="button" href="#topup">เติมเงินเข้ากระเป๋า</a></div>
+
 </section>
 @if(ViewData["DemoTopUpsEnabled"] is true){
 <section class="panel" id="topup" aria-labelledby="automatic-topup-heading">
-<p class="eyebrow">DEMO PAYMENT</p><h2 id="automatic-topup-heading">เติมเครดิตอัตโนมัติแบบทดลอง</h2>
-<p class="alert">โหมดจำลองสำหรับทดลองระบบ ไม่มีการเรียกเก็บเงินจริง เครดิตทดลองจะรวมในยอดกระเป๋าและใช้ทดลองจองสนามหรือซื้อแพ็กได้</p>
-<ol><li>ระบุยอดเครดิตที่ต้องการเติม</li><li>กด “ไปหน้าชำระเงินทดลอง”</li><li>เลือกจำลองชำระสำเร็จ ยอดจะเข้ากระเป๋าทันทีโดยไม่ต้องแนบสลิปหรือรอผู้ดูแล</li></ol>
+<p class="eyebrow">เครดิตทดลอง</p><h2 id="automatic-topup-heading">เติมเครดิตอัตโนมัติแบบทดลอง</h2>
+<p class="alert">เครดิตทดลองใช้จองสนามและซื้อแพ็กในระบบได้ โดยรวมอยู่ในยอดกระเป๋า ไม่มีการเรียกเก็บเงินจริง</p>
+<ol><li>ระบุยอดเครดิตที่ต้องการเติม</li><li>กด “ไปหน้าชำระเงินทดลอง”</li><li>กด “ชำระสำเร็จ” เพื่อเพิ่มเครดิตทดลองเข้ากระเป๋าทันที ไม่ต้องแนบสลิปหรือรอผู้ดูแล</li></ol>
 <form asp-action="StartDemoPayment" method="post">
 <label for="demo-amount">ยอดเครดิตทดลอง (บาท)</label><input id="demo-amount" name="Amount" type="number" min="1" max="100000" step="0.01" value="100" required aria-describedby="demo-amount-help"/>
 <p class="help" id="demo-amount-help">ครั้งละ 1–100,000 บาท ทศนิยมไม่เกิน 2 ตำแหน่ง</p>
 <button class="button" type="submit">ไปหน้าชำระเงินทดลอง</button></form>
-<p><a href="#transfer-topup">เติมเงินด้วยการโอนและแนบสลิปแทน</a></p>
+<p><a href="#transfer-topup">เติมเงินผ่านธนาคารและแนบสลิป</a></p>
 </section>
 }
-<section class="panel"><p class="eyebrow">MEMBERSHIP PLANS</p><h2>แพ็กรายเดือนและรายปี</h2><p>รับส่วนลดค่าจองในช่วงอายุแพ็ก ระบบเลือกส่วนลดที่มากกว่าระหว่างแพ็กกับโปรโมชั่นที่เลือก โดยไม่รวมส่วนลดซ้อนกัน แพ็กเริ่มทันทีที่ซื้อและไม่ต่ออายุอัตโนมัติ</p>
-<div class="admin-court-grid">
-@foreach(var plan in Model.Plans){<article class="panel"><h3>@plan.Name</h3>
-@if(plan.IsActive && plan.PriceSatang>0 && plan.DiscountPercent>0){<p><strong>฿@CourtTime.Money(plan.PriceSatang)</strong> / @plan.Months เดือน</p><p>ลดค่าจอง @plan.DiscountPercent% สำหรับวันที่เล่นภายในอายุแพ็ก</p>
-<form asp-action="Buy" method="post" onsubmit="return confirm('ยืนยันซื้อแพ็กด้วยยอดเงินในกระเป๋า? แพ็กจะเริ่มใช้งานทันที');">
-<input type="hidden" name="planId" value="@plan.Id"/><input type="hidden" name="expectedPriceSatang" value="@plan.PriceSatang"/><input type="hidden" name="expectedDiscountPercent" value="@plan.DiscountPercent"/>
-<button class="button" type="submit" disabled="@(Model.Membership is not null || Model.BalanceSatang<plan.PriceSatang)">ซื้อ@(plan.Name)</button></form>
-@if(Model.Membership is not null){<p class="help">ซื้อแพ็กใหม่ได้เมื่อแพ็กปัจจุบันหมดอายุ</p>}else if(Model.BalanceSatang<plan.PriceSatang){<p class="help">กรุณาเติมเงินให้เพียงพอก่อนซื้อ</p>}
-}else{<p class="muted">ยังไม่เปิดขาย รอผู้ดูแลกำหนดราคาและสิทธิ์</p>}
-</article>}
-</div></section>
 <section class="panel" id="@(ViewData["DemoTopUpsEnabled"] is true ? "transfer-topup" : "topup")" aria-labelledby="topup-heading"><p class="eyebrow">TOP UP</p><h2 id="topup-heading">เติมเงินด้วยการโอนและแนบสลิป</h2>
 <h3>วิธีเติมเงินผ่านแอปธนาคาร</h3>
 <ol>
 <li><strong>สแกน QR ด้านล่าง</strong> หรือกดบันทึก QR แล้วเลือกรูปจากอัลบั้มในแอปธนาคาร</li>
 <li><strong>กรอกยอดที่ต้องการเติม 1–100,000 บาท</strong> ตรวจสอบชื่อผู้รับและยอดเงินในแอปธนาคารก่อนยืนยันโอน QR นี้ไม่ได้กำหนดยอดเงินไว้</li>
-<li><strong>บันทึกสลิปหลังโอนสำเร็จ</strong> แล้วกรอกยอดที่โอน เลขรายการโอนจากสลิป และแนบรูปสลิปในแบบฟอร์มด้านล่าง</li>
-<li><strong>กด “แจ้งเติมเงิน”</strong> แล้วติดตามผลในหัวข้อ “คำขอเติมเงิน” ผู้ดูแลจะตรวจรายการรับเงินจริงก่อนอนุมัติ</li>
+<li><strong>บันทึกสลิปหลังโอนสำเร็จ</strong> แล้วกรอกยอดที่โอนและแนบรูปสลิปในแบบฟอร์มด้านล่าง</li>
+<li><strong>กด “แจ้งเติมเงิน”</strong> ผู้ดูแลจะตรวจรายการรับเงินจริงก่อนอนุมัติ เมื่ออนุมัติแล้วดูยอดได้ในประวัติกระเป๋าเงิน</li>
 </ol>
 <p class="alert">การส่งสลิปยังไม่เพิ่มยอดเงิน ยอดจะเข้ากระเป๋าเมื่อสถานะเป็น “เติมเงินสำเร็จ” ไม่ต้องโอนซ้ำระหว่างรอตรวจสอบ</p>
 <div class="qr-payment-grid"><div class="qr-code-card"><img src="~/images/payment-qr.jpg" asp-append-version="true" alt="QR สำหรับโอนเงินเติมกระเป๋า"/><a class="button secondary small" href="~/images/payment-qr.jpg" download="courtbook-topup-qr.jpg">บันทึก QR สำหรับเติมเงิน</a></div>
 <form asp-action="TopUp" method="post" enctype="multipart/form-data"><label for="topup-amount">ยอดที่โอน (บาท)</label><input id="topup-amount" name="Amount" type="number" min="1" max="100000" step="0.01" required/>
-<label for="topup-reference">เลขรายการโอนจากสลิป</label><input id="topup-reference" name="TransferReference" maxlength="200" required/>
 <label for="topup-slip">สลิปโอนเงิน</label><input id="topup-slip" name="Slip" type="file" accept="image/jpeg,image/png,image/webp" required/>
 <p class="help">JPG, PNG หรือ WebP ไม่เกิน 5 MB · ใช้สลิปใหม่สำหรับเติมเงินเท่านั้น ห้ามใช้สลิปที่ชำระค่าจองแล้ว</p>
 <button class="button" type="submit">แจ้งเติมเงิน</button></form></div></section>
-<section class="panel" id="topup-history"><h2>คำขอเติมเงิน</h2>
-<details><summary>สถานะคำขอเติมเงินหมายถึงอะไร?</summary><ul><li><strong>รอตรวจสอบ:</strong> ผู้ดูแลยังไม่ได้อนุมัติ ยอดคงเหลือยังไม่เปลี่ยน</li><li><strong>เติมเงินสำเร็จ:</strong> ผู้ดูแลอนุมัติแล้ว ตรวจยอดคงเหลือและประวัติกระเป๋าเงินด้านล่างได้</li><li><strong>ไม่อนุมัติ:</strong> ยอดยังไม่เข้ากระเป๋า อ่านเหตุผลในช่องหมายเหตุ หากโอนเงินจริงแล้วให้ติดต่อผู้ดูแลพร้อมรหัส TU และสลิปก่อนโอนเพิ่ม</li></ul><a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแลเรื่องเติมเงิน</a></details>
-<div class="table-wrap"><table><thead><tr><th>รายการ</th><th>ยอด</th><th>เลขโอน</th><th>สถานะ</th><th>หมายเหตุ</th><th>สลิป</th></tr></thead><tbody>
-@foreach(var t in Model.TopUps){<tr><td>TU@(t.Id.ToString("000000"))</td><td>฿@CourtTime.Money(t.AmountSatang)</td><td>@t.TransferReference</td><td>@t.StatusLabel</td><td>@t.ReviewNote</td><td><a asp-action="Slip" asp-route-id="@t.Id" target="_blank" rel="noopener">ดูสลิป</a></td></tr>}
-@if(Model.TopUps.Count==0){<tr><td colspan="6">ยังไม่มีคำขอเติมเงิน</td></tr>}
-</tbody></table></div></section>
 <section class="panel"><h2>ประวัติกระเป๋าเงิน</h2><div class="table-wrap"><table><thead><tr><th>เวลา</th><th>รายการ</th><th>ยอดเงินเข้า / ออก</th></tr></thead><tbody>
 @foreach(var e in Model.Entries){<tr><td>@DateTimeOffset.Parse(e.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture)</td><td>@e.Description</td><td>@(e.AmountSatang>0?"+":"−")฿@CourtTime.Money(Math.Abs(e.AmountSatang))</td></tr>}
 @if(Model.Entries.Count==0){<tr><td colspan="3">ยังไม่มีรายการ</td></tr>}

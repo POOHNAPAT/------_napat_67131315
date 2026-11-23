@@ -58,6 +58,19 @@ def run():
             connection.commit()
         legacy_counts = exporter.export(source, Path(directory) / "legacy.sql")
         assert legacy_counts["Users"] == 1 and all(legacy_counts[t] == 0 for t in exporter.TABLES[7:]), "Pre-wallet database not supported"
+        with closing(sqlite3.connect(source)) as connection:
+            connection.execute("ALTER TABLE Bookings ADD COLUMN UserId INTEGER")
+            connection.execute("ALTER TABLE Bookings ADD COLUMN CourtName TEXT")
+            connection.execute("INSERT INTO Bookings(Id,UserId,CourtName) VALUES(7,17,'Legacy court')")
+            connection.execute("CREATE TABLE DamageReports(Id INTEGER PRIMARY KEY,BookingId INTEGER NOT NULL,Category TEXT,Description TEXT)")
+            connection.execute("INSERT INTO DamageReports VALUES(9,7,'Court','Legacy damage')")
+            connection.commit()
+        legacy_before=source.read_bytes()
+        upgraded=Path(directory)/'legacy-reports.sql'
+        legacy_reports=exporter.export(source,upgraded)
+        migration=upgraded.read_text(encoding='utf-8')
+        assert legacy_reports['DamageReports']==1 and 'INSERT INTO DamageReports(Id,BookingId,Category,Description,UserId,Subject)' in migration
+        assert exporter.literal('Legacy court') in migration and source.read_bytes()==legacy_before, 'Legacy report owner/subject export changed source or lost data'
     print("PASS: snapshot export preserves values/source, guards target/output, resets IDs, and wraps one transaction")
 
 

@@ -1,0 +1,8 @@
+@model ProfileForm
+@{ViewData["Title"]="แก้ไขข้อมูลส่วนตัว";}
+<section class="form-panel"><p class="eyebrow">บัญชีของฉัน</p><h1>แก้ไขข้อมูลส่วนตัว</h1><form method="post">
+<div asp-validation-summary="All" class="validation alert" role="alert"></div>
+<label asp-for="Name">ชื่อที่แสดง</label><input asp-for="Name" required maxlength="100" autocomplete="name"/>
+<label asp-for="Email">อีเมล</label><input asp-for="Email" type="email" required autocomplete="email"/>
+<label asp-for="CurrentPassword">รหัสผ่านปัจจุบัน (เมื่อเปลี่ยนอีเมล)</label><input asp-for="CurrentPassword" type="password" autocomplete="current-password"/>
+<button class="button full" type="submit">บันทึกข้อมูล</button></form><p class="help">หลังบันทึก กรุณาเข้าสู่ระบบอีกครั้งเพื่อใช้ข้อมูลใหม่</p><a asp-action="Profile">กลับบัญชีของฉัน</a></section>

@@ -1,0 +1,18 @@
+{
+  "generator": "built-in Imagegen",
+  "usage": "Illustrative sports category images, not photographs of actual listed venues",
+  "assets": [
+    {
+      "path": "badminton.png",
+      "prompt": "Photorealistic empty premium indoor badminton court, wide corner architectural sports photography, dark black and neon-green athletic styling, realistic lighting, no people, no text, no logos."
+    },
+    {
+      "path": "football.png",
+      "prompt": "Photorealistic empty premium night football turf pitch, wide corner architectural sports photography, dark black and neon-green athletic styling, realistic lighting, no people, no text, no logos."
+    },
+    {
+      "path": "tennis.png",
+      "prompt": "Photorealistic empty premium tennis court at dusk, wide corner architectural sports photography, dark black and neon-green athletic styling, realistic lighting, no people, no text, no logos."
+    }
+  ]
+}

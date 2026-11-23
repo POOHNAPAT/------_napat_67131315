@@ -9,10 +9,11 @@ else if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null
 @if(ViewBag.WalletBalance is long balance){<p>ยอดคงเหลือ ฿@CourtTime.Money(balance)</p>}
 <form asp-action="PayWallet" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('ยืนยันหักยอดค่าจองจากกระเป๋าเงิน?');"><button class="button" type="submit">ชำระ ฿@CourtTime.Money(Model.NetSatang) ด้วยกระเป๋าเงิน</button></form><a class="inline-link" asp-controller="Wallet" asp-action="Index" asp-fragment="topup">วิธีเติมเงิน / แจ้งเติมเงิน</a></section>
 }
-<h2 class="booking-record-heading">ข้อมูลรายการจอง</h2><partial name="_BookingDetails" model="Model"/>
+@if(Model.PaidAt is not null){<section class="panel"><h2>ใบเสร็จและหลักฐานการเข้าสนาม</h2><div class="action-group"><a class="button" asp-controller="Receipts" asp-action="Details" asp-route-id="@($"RC-BK-{Model.Id:000000}")">ดูใบเสร็จ / พิมพ์หลักฐาน</a></div></section>}
+<p><a class="button secondary" asp-action="ReportDamage" asp-route-id="@Model.Id">แจ้งสนาม / อุปกรณ์ชำรุด และติดตามสถานะ</a></p><h2 class="booking-record-heading">ข้อมูลรายการจอง</h2><partial name="_BookingDetails" model="Model"/>
 @if(Model.CanCancel){
 <details class="panel"><summary>ยกเลิกการจอง</summary><p>เมื่อยกเลิก ช่วงเวลานี้จะเปิดให้ผู้อื่นจอง และยังคงเก็บรายการไว้ในประวัติ</p><form method="post" asp-action="Cancel" asp-route-id="@Model.Id"><button class="button secondary" type="submit">ยืนยันยกเลิกการจอง</button></form></details>
 } else if((Model.PaidAt is not null || Model.PaymentSubmittedAt is not null) && Model.Status!="Cancelled") {
-<p class="help">หากต้องการยกเลิกรายการที่ชำระเงินแล้ว กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแลเพื่อจัดการคืนเงิน</a></p>
+@if(Model.PaidAt is not null){<p><a class="button secondary" asp-controller="Accounting" asp-action="Index" asp-fragment="refunds">ขอคืนเงิน / ติดตามผลคำขอ</a></p><p class="help">ขอคืนเงินได้ก่อนเริ่มใช้งาน เมื่อผู้ดูแลอนุมัติจะคืนเข้ากระเป๋า COURTBOOK</p>}else{<p class="help">ส่งหลักฐานแล้ว กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแลเพื่อตรวจสอบก่อนยกเลิก</a></p>}
 }
 <div class="action-row"><a class="button" asp-action="History">ดูประวัติการจอง</a><a class="button secondary" asp-controller="Home" asp-action="Index">กลับหน้าแรก</a></div><p class="help">ข้อมูลนี้เป็นผลการจอง ไม่ใช่หลักฐานการชำระเงิน</p></section>

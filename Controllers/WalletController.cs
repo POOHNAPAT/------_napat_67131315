@@ -76,10 +76,11 @@ public class WalletController(BookingStore store, IConfiguration configuration) 
     }
 
     [HttpPost]
-    public IActionResult Buy(string planId, long expectedPriceSatang, int expectedDiscountPercent)
+    public IActionResult Buy(string planId, long expectedPriceSatang, int expectedDiscountPercent, int? expectedMonths,int expectedMonthlyHours=0,long expectedQuotaSportTypeId=0)
     {
-        try { store.BuyPlan(UserId,planId,expectedPriceSatang,expectedDiscountPercent); TempData["Success"]="ซื้อแพ็กสำเร็จ เริ่มใช้สิทธิ์ได้ทันที"; }
+        if(!ModelState.IsValid)return BadRequest();
+        try { var id=store.BuyPlan(UserId,planId,expectedPriceSatang,expectedDiscountPercent,expectedMonths,expectedMonthlyHours,expectedQuotaSportTypeId); TempData["Success"]="ซื้อแพ็กสำเร็จ ออกใบเสร็จแล้ว"; return RedirectToAction("Details","Receipts",new{id=$"RC-MB-{id:000000}"}); }
         catch(BookingRuleException ex) { TempData["Error"]=ex.Message; }
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction("Membership","Home");
     }
 }

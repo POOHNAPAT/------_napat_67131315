@@ -12,7 +12,7 @@ public partial class BookingStore
     private readonly string connectionString;
     private readonly bool postgres;
     private readonly PasswordHasher<SiteUser> hasher = new();
-    public static readonly string[] Rules = ["NewMember", "Consecutive", "WeekdayMorning", "Advance", "Threshold"];
+    public static readonly string[] Rules = ["NewMember", "Consecutive", "WeekdayMorning", "Advance", "Threshold", "Group"];
 
     public BookingStore(IWebHostEnvironment environment, IConfiguration configuration)
     {
@@ -75,6 +75,13 @@ public partial class BookingStore
             InitializeWallet(c);
         }
         Seed(c, configuration.GetValue<bool>("Demo:SeedAccounts"));
+        BootstrapAdmin(c,configuration);
+        InitializeEquipment(c);
+        InitializeProductFeatures(c);
+        InitializeDamageReports(c);
+        InitializeMembershipQuotas(c);
+        InitializeReceipts(c);
+        InitializeAccounting(c);
     }
 
     private static void UpgradeSchema(DbConnection c)
@@ -115,6 +122,7 @@ public partial class BookingStore
         AddColumn("Bookings", "TransferReference", "TEXT NOT NULL DEFAULT ''");
         AddColumn("Bookings", "SlipData", "BLOB");
         AddColumn("Bookings", "SlipContentType", "TEXT");
+        AddColumn("Bookings", "EquipmentJson", "TEXT NOT NULL DEFAULT '[]'");
         tx.Commit();
     }
 
@@ -131,7 +139,7 @@ public partial class BookingStore
     {
         using var c = Open();
         using var cmd = Cmd(c, "INSERT INTO SportTypes(Name) VALUES($name)", null, ("$name", form.Name.Trim()));
-        try { cmd.ExecuteNonQuery(); }
+        try { cmd.ExecuteNonQuery(); InitializeProductFeatures(c); }
         catch (DbException ex) when (IsUniqueViolation(ex))
         { throw new BookingRuleException("ประเภทกีฬานี้มีอยู่แล้ว"); }
     }
@@ -160,14 +168,14 @@ public partial class BookingStore
     {
         using var c = Open();
         using var tx = BeginWrite(c);
-        using var find = Cmd(c, "SELECT PlayDate,StartHour,Status,PaidAt,PaymentSubmittedAt FROM Bookings WHERE Id=$id AND UserId=$user",
+        using var find = Cmd(c, "SELECT PlayDate,StartHour,Status,PaidAt,PaymentSubmittedAt,NetSatang,COALESCE((SELECT Hours FROM MembershipQuotaUses WHERE BookingId=Bookings.Id),0) FROM Bookings WHERE Id=$id AND UserId=$user",
             tx, ("$id", id), ("$user", userId));
         using var r = find.ExecuteReader();
         if (!r.Read()) return false;
         var start = Date(r.GetString(0)).ToDateTime(new TimeOnly(r.GetInt32(1), 0));
         if (r.GetString(2) is not ("Pending" or "Confirmed"))
             throw new BookingRuleException("รายการนี้ถูกยกเลิกแล้ว");
-        if (!r.IsDBNull(3)) throw new BookingRuleException("รายการนี้ยืนยันชำระเงินแล้ว กรุณาติดต่อผู้ดูแลเพื่อจัดการยกเลิกและคืนเงิน");
+        if (!r.IsDBNull(3) && !(r.GetInt64(5)==0 && r.GetInt32(6)>0)) throw new BookingRuleException("รายการนี้ยืนยันชำระเงินแล้ว กรุณาติดต่อผู้ดูแลเพื่อจัดการยกเลิกและคืนเงิน");
         if (!r.IsDBNull(4)) throw new BookingRuleException("รายการนี้แจ้งโอนเงินแล้ว กรุณาติดต่อผู้ดูแลเพื่อจัดการยกเลิกและตรวจสอบการคืนเงิน");
         if (start <= CourtTime.Now) throw new BookingRuleException("ไม่สามารถยกเลิกรายการที่ถึงเวลาเล่นแล้ว");
         r.Close();
@@ -184,28 +192,34 @@ public partial class BookingStore
         if (string.IsNullOrWhiteSpace(reference) || reference.Trim().Length > 200)
             throw new BookingRuleException("กรุณาระบุเลขอ้างอิงหรือรายละเอียดการรับเงินไม่เกิน 200 ตัวอักษร");
         using var c = Open();
+        using var tx = BeginWrite(c);
         using var cmd = Cmd(c, """
             UPDATE Bookings SET PaidAt=$now,PaidBy=$admin,PaymentReference=$reference
             WHERE Id=$id AND Status='Confirmed' AND PaidAt IS NULL
             AND EXISTS(SELECT 1 FROM Users WHERE Id=$admin AND Role='Admin')
-            """, null, ("$id", id), ("$admin", adminId), ("$reference", reference.Trim()), ("$now", DateTime.UtcNow.ToString("O")));
-        return cmd.ExecuteNonQuery() == 1;
+            """, tx, ("$id", id), ("$admin", adminId), ("$reference", reference.Trim()), ("$now", DateTime.UtcNow.ToString("O")));
+        var updated=cmd.ExecuteNonQuery()==1;
+        if(updated)IssueBookingReceipt(c,tx,id);
+        tx.Commit();return updated;
     }
     public bool SubmitPayment(long id, long userId, PaymentSubmissionForm form)
     {
-        if (string.IsNullOrWhiteSpace(form.TransferReference) || form.TransferReference.Trim().Length > 200)
-            throw new BookingRuleException("กรุณาระบุเลขรายการโอนไม่เกิน 200 ตัวอักษร");
+        if (form.TransferReference?.Trim().Length > 200)
+            throw new BookingRuleException("เลขรายการโอนต้องไม่เกิน 200 ตัวอักษร");
         var slip = ReadUploadedImage(form.Slip) ?? throw new BookingRuleException("กรุณาแนบรูปสลิปโอนเงิน");
+        var reference = string.IsNullOrWhiteSpace(form.TransferReference)
+            ? "SLIP-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(slip.Data))
+            : form.TransferReference.Trim();
         using var c = Open();
         using var tx = BeginWrite(c);
         using var walletProof = Cmd(c, "SELECT COUNT(*) FROM TopUps WHERE lower(TransferReference)=lower($reference) OR SlipHash=$hash", tx,
-            ("$reference", form.TransferReference.Trim()), ("$hash", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(slip.Data))));
+            ("$reference", reference), ("$hash", Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(slip.Data))));
         if ((long)walletProof.ExecuteScalar()! > 0) throw new BookingRuleException("สลิปหรือเลขโอนนี้เคยใช้เติมเงินแล้ว");
         using var cmd = Cmd(c, """
             UPDATE Bookings SET PaymentSubmittedAt=$now,TransferReference=$reference,SlipData=$slip,SlipContentType=$mime
             WHERE Id=$id AND UserId=$user AND Status IN ('Pending','Confirmed') AND PaidAt IS NULL AND NetSatang>0
             """, tx, ("$id", id), ("$user", userId), ("$now", DateTime.UtcNow.ToString("O")),
-            ("$reference", form.TransferReference.Trim()), ("$slip", slip.Data), ("$mime", slip.ContentType));
+            ("$reference", reference), ("$slip", slip.Data), ("$mime", slip.ContentType));
         var updated = cmd.ExecuteNonQuery() == 1;
         tx.Commit();
         return updated;
@@ -326,24 +340,24 @@ public partial class BookingStore
     public SiteUser? FindUser(long id)
     {
         using var c = Open();
-        using var cmd = Cmd(c, "SELECT Id,Name,Email,PasswordHash,Role FROM Users WHERE Id=$id", null, ("$id", id));
+        using var cmd = Cmd(c, "SELECT Id,Name,Email,PasswordHash,Role FROM Users WHERE Id=$id AND IsLocked=0", null, ("$id", id));
         using var r = cmd.ExecuteReader();
         return r.Read() ? ReadUser(r) : null;
     }
     public SiteUser? Authenticate(string email, string password)
     {
         using var c = Open();
-        using var cmd = Cmd(c, "SELECT Id,Name,Email,PasswordHash,Role FROM Users WHERE lower(Email)=lower($email)", null, ("$email", email.Trim()));
+        using var cmd = Cmd(c, "SELECT Id,Name,Email,PasswordHash,Role FROM Users WHERE lower(Email)=lower($email) AND IsLocked=0", null, ("$email", email.Trim()));
         using var r = cmd.ExecuteReader();
         var user = r.Read() ? ReadUser(r) : null;
         return user is not null && hasher.VerifyHashedPassword(user, user.PasswordHash, password) != PasswordVerificationResult.Failed ? user : null;
     }
 
     private static Court ReadCourt(DbDataReader r) => new()
-        { Id = r.GetInt64(0), Name = r.GetString(1), Description = r.GetString(2), PriceSatang = r.GetInt64(3), IsActive = (Convert.ToInt32(r.GetValue(4)) != 0), SportTypeId = r.GetInt64(5), SportTypeName = r.GetString(6), ImageVersion = r.GetString(7) };
+        { Id = r.GetInt64(0), Name = r.GetString(1), Description = r.GetString(2), PriceSatang = r.GetInt64(3), IsActive = (Convert.ToInt32(r.GetValue(4)) != 0), SportTypeId = r.GetInt64(5), SportTypeName = r.GetString(6), ImageVersion = r.GetString(7), Location=r.GetString(8), Rating=r.IsDBNull(9)?null:Convert.ToDecimal(r.GetValue(9)), ReviewCount=Convert.ToInt32(r.GetValue(10)) };
     private static Court? GetCourt(DbConnection c, long id, DbTransaction? tx = null)
     {
-        using var cmd = Cmd(c, "SELECT c.Id,c.Name,c.Description,c.PriceSatang,c.IsActive,c.SportTypeId,s.Name,c.ImageVersion FROM Courts c JOIN SportTypes s ON s.Id=c.SportTypeId WHERE c.Id=$id AND c.IsDeleted=0", tx, ("$id", id));
+        using var cmd = Cmd(c, "SELECT c.Id,c.Name,c.Description,c.PriceSatang,c.IsActive,c.SportTypeId,s.Name,c.ImageVersion,c.Location,(SELECT AVG(CAST(v.Rating AS REAL)) FROM CourtReviews v WHERE v.CourtId=c.Id),(SELECT COUNT(*) FROM CourtReviews v WHERE v.CourtId=c.Id) FROM Courts c JOIN SportTypes s ON s.Id=c.SportTypeId WHERE c.Id=$id AND c.IsDeleted=0", tx, ("$id", id));
         using var r = cmd.ExecuteReader();
         return r.Read() ? ReadCourt(r) : null;
     }
@@ -351,7 +365,7 @@ public partial class BookingStore
     public IReadOnlyList<Court> Courts(bool includeClosed = false)
     {
         using var c = Open();
-        using var cmd = Cmd(c, "SELECT c.Id,c.Name,c.Description,c.PriceSatang,c.IsActive,c.SportTypeId,s.Name,c.ImageVersion FROM Courts c JOIN SportTypes s ON s.Id=c.SportTypeId WHERE c.IsDeleted=0 AND (c.IsActive=1 OR $all=1) ORDER BY c.Id", null, ("$all", includeClosed));
+        using var cmd = Cmd(c, "SELECT c.Id,c.Name,c.Description,c.PriceSatang,c.IsActive,c.SportTypeId,s.Name,c.ImageVersion,c.Location,(SELECT AVG(CAST(v.Rating AS REAL)) FROM CourtReviews v WHERE v.CourtId=c.Id),(SELECT COUNT(*) FROM CourtReviews v WHERE v.CourtId=c.Id) FROM Courts c JOIN SportTypes s ON s.Id=c.SportTypeId WHERE c.IsDeleted=0 AND (c.IsActive=1 OR $all=1) ORDER BY c.Id", null, ("$all", includeClosed));
         using var r = cmd.ExecuteReader();
         var result = new List<Court>();
         while (r.Read()) result.Add(ReadCourt(r));
@@ -365,9 +379,9 @@ public partial class BookingStore
         using var type = Cmd(c, "SELECT COUNT(*) FROM SportTypes WHERE Id=$id", null, ("$id", form.SportTypeId));
         if ((long)type.ExecuteScalar()! == 0) throw new BookingRuleException("ไม่พบประเภทกีฬาที่เลือก");
         using var cmd = Cmd(c, form.Id == 0
-            ? "INSERT INTO Courts(Name,Description,PriceSatang,IsActive,SportTypeId,ImageData,ImageContentType,ImageVersion) VALUES($name,$description,$price,$active,$type,$image,$mime,$version)"
-            : "UPDATE Courts SET Name=$name,Description=$description,PriceSatang=$price,IsActive=$active,SportTypeId=$type,ImageData=CASE WHEN $replace=1 THEN $image ELSE ImageData END,ImageContentType=CASE WHEN $replace=1 THEN $mime ELSE ImageContentType END,ImageVersion=CASE WHEN $replace=1 THEN $version ELSE ImageVersion END WHERE Id=$id AND IsDeleted=0",
-            null, ("$id", form.Id), ("$name", form.Name.Trim()), ("$description", form.Description?.Trim() ?? ""),
+            ? "INSERT INTO Courts(Name,Description,PriceSatang,IsActive,SportTypeId,ImageData,ImageContentType,ImageVersion,Location) VALUES($name,$description,$price,$active,$type,$image,$mime,$version,$location)"
+            : "UPDATE Courts SET Location=$location,Name=$name,Description=$description,PriceSatang=$price,IsActive=$active,SportTypeId=$type,ImageData=CASE WHEN $replace=1 THEN $image ELSE ImageData END,ImageContentType=CASE WHEN $replace=1 THEN $mime ELSE ImageContentType END,ImageVersion=CASE WHEN $replace=1 THEN $version ELSE ImageVersion END WHERE Id=$id AND IsDeleted=0",
+            null, ("$id", form.Id), ("$location",form.Location?.Trim()??""), ("$name", form.Name.Trim()), ("$description", form.Description?.Trim() ?? ""),
             ("$price", Satang(form.Price)), ("$active", form.IsActive), ("$type", form.SportTypeId),
             ("$replace", replaceImage), ("$image", image?.Data), ("$mime", image?.ContentType), ("$version", image is null ? "" : Guid.NewGuid().ToString("N")));
         return cmd.ExecuteNonQuery() == 1;
@@ -410,7 +424,7 @@ public partial class BookingStore
     private static IReadOnlyList<Promotion> GetPromotions(DbConnection c, bool all, DbTransaction? tx = null)
     {
         using var cmd = Cmd(c, """
-            SELECT Id,Name,Rule,Kind,Value100,MinHours,MinDays,MinSpendSatang,Starts,Ends,IsActive FROM Promotions
+            SELECT Id,Name,Rule,Kind,Value100,MinHours,MinDays,MinSpendSatang,Starts,Ends,IsActive,MinPlayers FROM Promotions
             WHERE $all=1 OR (IsActive=1 AND Starts <= $today AND Ends >= $today) ORDER BY Id
             """, tx, ("$all", all), ("$today", CourtTime.Iso(CourtTime.Today)));
         using var r = cmd.ExecuteReader();
@@ -418,7 +432,7 @@ public partial class BookingStore
         while (r.Read()) result.Add(new Promotion {
             Id=r.GetInt64(0), Name=r.GetString(1), Rule=r.GetString(2), Kind=r.GetString(3), Value100=r.GetInt32(4),
             MinHours=r.GetInt32(5), MinDays=r.GetInt32(6), MinSpendSatang=r.GetInt64(7), Starts=Date(r.GetString(8)),
-            Ends=Date(r.GetString(9)), IsActive=(Convert.ToInt32(r.GetValue(10)) != 0) });
+            MinPlayers=r.GetInt32(11),Ends=Date(r.GetString(9)), IsActive=(Convert.ToInt32(r.GetValue(10)) != 0) });
         return result;
     }
     public IReadOnlyList<Promotion> Promotions(bool all = false) { using var c = Open(); return GetPromotions(c, all); }
@@ -429,12 +443,12 @@ public partial class BookingStore
             throw new BookingRuleException("ตรวจสอบเงื่อนไข ประเภทส่วนลด ช่วงวันที่ และส่วนลดเปอร์เซ็นต์ต้องไม่เกิน 100%");
         using var c = Open();
         using var cmd = Cmd(c, form.Id == 0 ? """
-            INSERT INTO Promotions(Name,Rule,Kind,Value100,MinHours,MinDays,MinSpendSatang,Starts,Ends,IsActive)
-            VALUES($name,$rule,$kind,$value,$hours,$days,$spend,$starts,$ends,$active)
+            INSERT INTO Promotions(Name,Rule,Kind,Value100,MinHours,MinDays,MinSpendSatang,Starts,Ends,IsActive,MinPlayers)
+            VALUES($name,$rule,$kind,$value,$hours,$days,$spend,$starts,$ends,$active,$players)
             """ : """
-            UPDATE Promotions SET Name=$name,Rule=$rule,Kind=$kind,Value100=$value,MinHours=$hours,MinDays=$days,
+            UPDATE Promotions SET MinPlayers=$players,Name=$name,Rule=$rule,Kind=$kind,Value100=$value,MinHours=$hours,MinDays=$days,
             MinSpendSatang=$spend,Starts=$starts,Ends=$ends,IsActive=$active WHERE Id=$id
-            """, null, ("$id",form.Id), ("$name",form.Name.Trim()), ("$rule",form.Rule), ("$kind",form.Kind),
+            """, null, ("$id",form.Id), ("$players",form.MinPlayers), ("$name",form.Name.Trim()), ("$rule",form.Rule), ("$kind",form.Kind),
             ("$value",Satang(form.Value)), ("$hours",form.MinHours), ("$days",form.MinDays), ("$spend",Satang(form.MinSpend)),
             ("$starts",CourtTime.Iso(form.Starts)), ("$ends",CourtTime.Iso(form.Ends)), ("$active",form.IsActive));
         return cmd.ExecuteNonQuery() == 1;
@@ -487,10 +501,13 @@ public partial class BookingStore
             throw new BookingRuleException("ช่วงเวลานี้ไม่ว่างแล้ว หรือปิดให้จอง กรุณาเลือกเวลาใหม่");
         using var count = Cmd(c,"SELECT COUNT(*) FROM Bookings WHERE UserId=$user AND Status<>'Cancelled'",tx,("$user",userId));
         var first = (long)count.ExecuteScalar()! == 0;
+        var equipment = SelectEquipment(c, court.SportTypeId, form.Equipment, tx);
+        var equipmentTotal = equipment.Sum(e => e.TotalSatang);
         var gross = checked(court.PriceSatang * hours.Length);
         var promotions = GetPromotions(c,false,tx);
         bool Eligible(Promotion p) => p.Rule switch
         {
+            "Group" => form.Players>=p.MinPlayers,
             "NewMember" => first,
             "Consecutive" => hours.Length >= p.MinHours,
             "WeekdayMorning" => form.Date.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday && hours.All(h=>h>=8 && h<12),
@@ -507,29 +524,49 @@ public partial class BookingStore
                 ? (long)decimal.Round(gross * selected.Value100 / 10000m,0,MidpointRounding.AwayFromZero) : selected.Value100);
         }
         string? membershipName = null;
+        var included=0;long? quotaMembershipId=null;var quotaPeriod="";var remaining=0;
         var membership = ActiveMembership(c,userId,tx);
-        if (membership is not null && form.Date >= membership.Starts && form.Date < membership.Ends)
+        if (membership is not null && form.Date >= membership.Starts && form.Date < membership.Ends
+            && (membership.MonthlyHours==0 || membership.QuotaSportTypeId==court.SportTypeId))
         {
-            var memberDiscount = (long)decimal.Round(gross * membership.DiscountPercent / 100m,0,MidpointRounding.AwayFromZero);
-            if (memberDiscount > discount) { discount = memberDiscount; membershipName = membership.Name; }
+            var period=membership.Quotas?.SingleOrDefault(q=>form.Date>=q.Starts&&form.Date<q.Ends);
+            remaining=period?.RemainingHours??0;
+            var free=Math.Min(hours.Length,remaining);
+            var covered=free*court.PriceSatang;
+            var memberDiscount = covered+(long)decimal.Round((gross-covered)*membership.DiscountPercent/100m,0,MidpointRounding.AwayFromZero);
+            // Prefer the chosen promotion on ties, preserving the member's quota.
+            if (memberDiscount > discount) {
+                discount=memberDiscount;membershipName=membership.Name;included=free;
+                if(free>0){quotaMembershipId=membership.Id;quotaPeriod=CourtTime.Iso(period!.Starts);}
+            }
         }
-        return new Quote(gross,discount,gross-discount,promotions.Select(p=>new PromotionOption(p.Id,p.Name,p.DiscountLabel,Eligible(p),p.Condition)).ToList(),membershipName);
+        return new Quote(gross + equipmentTotal,discount,gross-discount + equipmentTotal,promotions.Select(p=>new PromotionOption(p.Id,p.Name,p.DiscountLabel,Eligible(p),p.Condition)).ToList(),membershipName,equipmentTotal,equipment,included,quotaMembershipId,quotaPeriod,remaining);
     }
+
     public Quote Preview(long userId, BookingForm form) { using var c = Open(); return Evaluate(c,userId,form,out _); }
     public long Book(long userId, BookingForm form)
     {
         using var c = Open();
         using var tx = BeginWrite(c);
         var quote = Evaluate(c,userId,form,out var court,tx);
+        if(form.ExpectedIncludedHours.HasValue && form.ExpectedIncludedHours!=quote.IncludedHours)throw new BookingRuleException("โควตาเปลี่ยนจากรายการจองอื่น กรุณาตรวจยอดใหม่ก่อนยืนยัน");
         var promotion = form.PromotionId.HasValue ? GetPromotions(c,false,tx).Single(p=>p.Id==form.PromotionId) : null;
         using var insert = Cmd(c,"""
-            INSERT INTO Bookings(UserId,CourtId,CourtName,PlayDate,StartHour,Hours,PriceSatang,GrossSatang,DiscountSatang,NetSatang,PromotionId,PromotionName,CreatedAt,Status)
-            VALUES($user,$court,$name,$date,$start,$hours,$price,$gross,$discount,$net,$promo,$promoName,$created,'Pending') RETURNING Id
+            INSERT INTO Bookings(UserId,CourtId,CourtName,PlayDate,StartHour,Hours,PriceSatang,GrossSatang,DiscountSatang,NetSatang,PromotionId,PromotionName,CreatedAt,Status,EquipmentJson,SportTypeName,Players)
+            VALUES($user,$court,$name,$date,$start,$hours,$price,$gross,$discount,$net,$promo,$promoName,$created,'Pending',$equipment,$sportName,$players) RETURNING Id
             """,tx,("$user",userId),("$court",court.Id),("$name",court.Name),("$date",CourtTime.Iso(form.Date)),
             ("$start",form.Hours.Min()),("$hours",form.Hours.Length),("$price",court.PriceSatang),("$gross",quote.GrossSatang),
             ("$discount",quote.DiscountSatang),("$net",quote.NetSatang),("$promo",quote.MembershipName is null ? promotion?.Id : null),("$promoName",quote.MembershipName??promotion?.Name??"ไม่ใช้โปรโมชั่น"),
-            ("$created",DateTime.UtcNow.ToString("O")));
+            ("$created",DateTime.UtcNow.ToString("O")),("$equipment",System.Text.Json.JsonSerializer.Serialize(quote.Equipment)),("$sportName",court.SportTypeName),("$players",form.Players));
         var id = (long)insert.ExecuteScalar()!;
+        if(quote.IncludedHours>0){
+            using var quota=Cmd(c,"INSERT INTO MembershipQuotaUses(MembershipId,BookingId,PeriodStart,Hours) VALUES($membership,$booking,$period,$hours)",tx,
+                ("$membership",quote.QuotaMembershipId),("$booking",id),("$period",quote.QuotaPeriod),("$hours",quote.IncludedHours));quota.ExecuteNonQuery();
+            if(quote.NetSatang==0){
+                using var covered=Cmd(c,"UPDATE Bookings SET PaidAt=$now,PaymentReference=$reference WHERE Id=$id",tx,("$id",id),("$now",DateTime.UtcNow.ToString("O")),("$reference","ใช้โควตาชั่วโมงแพ็กสมาชิก"));covered.ExecuteNonQuery();
+                IssueBookingReceipt(c,tx,id);
+            }
+        }
         foreach (var hour in form.Hours)
         {
             using var slot = Cmd(c,"INSERT INTO BookedSlots(CourtId,PlayDate,Hour,BookingId) VALUES($court,$date,$hour,$id)",tx,
@@ -546,7 +583,7 @@ public partial class BookingStore
         using var cmd = Cmd(c,"""
             SELECT b.Id,b.UserId,u.Name,u.Email,b.CourtId,b.CourtName,b.PlayDate,b.StartHour,b.Hours,b.PriceSatang,
             b.GrossSatang,b.DiscountSatang,b.NetSatang,b.PromotionName,b.Status,b.ConfirmedAt,COALESCE(a.Name,''),
-            b.PaidAt,COALESCE(p.Name,''),b.PaymentReference,b.CancelledAt,b.PaymentSubmittedAt,b.TransferReference FROM Bookings b JOIN Users u ON u.Id=b.UserId
+            b.PaidAt,COALESCE(p.Name,''),b.PaymentReference,b.CancelledAt,b.PaymentSubmittedAt,b.TransferReference,b.EquipmentJson,b.SportTypeName,b.Players,COALESCE((SELECT Hours FROM MembershipQuotaUses WHERE BookingId=b.Id),0) FROM Bookings b JOIN Users u ON u.Id=b.UserId
             LEFT JOIN Users a ON a.Id=b.ConfirmedBy LEFT JOIN Users p ON p.Id=b.PaidBy
             WHERE ($user IS NULL OR b.UserId=$user) AND ($date IS NULL OR b.PlayDate=$date) AND ($court IS NULL OR b.CourtId=$court)
             ORDER BY b.Id DESC
@@ -559,7 +596,8 @@ public partial class BookingStore
             GrossSatang=r.GetInt64(10),DiscountSatang=r.GetInt64(11),NetSatang=r.GetInt64(12),PromotionName=r.GetString(13),
             ApprovalStatus=r.GetString(14),ConfirmedAt=r.IsDBNull(15)?null:r.GetString(15),ConfirmedByName=r.GetString(16),
             PaidAt=r.IsDBNull(17)?null:r.GetString(17),PaidByName=r.GetString(18),PaymentReference=r.GetString(19),
-            CancelledAt=r.IsDBNull(20)?null:r.GetString(20),PaymentSubmittedAt=r.IsDBNull(21)?null:r.GetString(21),TransferReference=r.GetString(22) });
+            CancelledAt=r.IsDBNull(20)?null:r.GetString(20),PaymentSubmittedAt=r.IsDBNull(21)?null:r.GetString(21),TransferReference=r.GetString(22),
+            IncludedHours=r.GetInt32(26),Players=r.GetInt32(25),SportTypeName=r.GetString(24), Equipment=System.Text.Json.JsonSerializer.Deserialize<List<BookingEquipment>>(r.GetString(23)) ?? [] });
         return result;
     }
 }

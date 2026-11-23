@@ -1,0 +1,21 @@
+@model PaymentReceipt
+@{ViewData["Title"]=Model.Id+" · "+Model.Title;var data=Model.Data;var admin=Context.Items["AdminPortal"] is true;}
+<div class="receipt-actions"><a class="button secondary" asp-controller="@(admin?"Admin":"Receipts")" asp-action="@(admin?"Bookings":"Index")">@(admin?"กลับรายการจอง":"ใบเสร็จของฉัน")</a><button class="button" type="button" id="print-receipt">พิมพ์ / บันทึก PDF</button></div>
+<article class="receipt-document" aria-label="@Model.Title"><header class="receipt-heading"><div><strong class="receipt-brand">COURTBOOK</strong><p>ระบบจองสนามกีฬาออนไลน์</p></div><div><h1>@Model.Title</h1><p class="reference">@Model.Id</p></div></header>
+<div class="receipt-meta"><section><h2>ผู้ชำระเงิน</h2><p>@data.MemberName<br/>@data.MemberEmail</p></section><section><h2>ข้อมูลการชำระ</h2><p>วันที่ชำระ @DateTimeOffset.Parse(data.PaidAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น.<br/>อ้างอิงรายการ @data.SourceReference<br/>@data.PaymentReference</p></section></div>
+@if(data.Kind=="Booking"){
+<section class="receipt-entry"><p class="eyebrow">หลักฐานรายการจองสำหรับแสดงต่อเจ้าหน้าที่</p><h2>@data.CourtName</h2><p>@data.SportTypeName · @(data.PlayDate.HasValue?CourtTime.Display(data.PlayDate.Value):"") · @data.TimeLabel น.</p><strong class="entry-status" data-booking-status="@Model.Booking?.Status">@Model.EntryStatus</strong>
+@if(Model.Booking?.ApprovalStatus=="Pending"){<p>เจ้าหน้าที่ต้องยืนยันการจองก่อนเข้าใช้สนาม</p>}else if(Model.Booking?.ApprovalStatus=="Confirmed"&&Model.Booking.Status!="Completed"){<p>แสดงรหัส @data.SourceReference พร้อมใบเสร็จนี้ให้เจ้าหน้าที่ตรวจสอบสถานะล่าสุด และใช้สนามตามวันเวลาที่จอง</p>}else{<p>เอกสารนี้แสดงประวัติการรับชำระ กรุณาตรวจสอบรายการจองที่ยังใช้งานได้ก่อนเข้าสนาม</p>}
+</section>
+}else{
+<section class="receipt-entry"><h2>@data.PlanName</h2>@if(data.MonthlyHours>0){<p>รวม @data.MonthlyHours ชั่วโมงสนาม / เดือน · @data.QuotaSportName<br/>โควตาเริ่มรอบใหม่ตามวันเริ่มแพ็ก ไม่ทบยอด ส่วนเกินใช้ส่วนลดด้านล่าง</p>}<p>สิทธิ์ส่วนลดค่าจองสนาม @data.DiscountPercent%<br/>เริ่ม @(data.Starts.HasValue?CourtTime.Display(data.Starts.Value):"") ถึง @(data.Ends.HasValue?CourtTime.Display(data.Ends.Value.AddDays(-1)):"")</p><p>ใช้แพ็กเป็นส่วนลดเมื่อจองสนาม และแสดงใบเสร็จรายการจองที่ยืนยันแล้วต่อเจ้าหน้าที่เพื่อเข้าใช้สนาม</p></section>
+}
+@if(Model.Refund is { } refund){<section class="receipt-entry"><h2>สถานะคำขอคืนเงิน: @refund.StatusLabel</h2><p>@refund.Reference · ฿@CourtTime.Money(refund.AmountSatang)</p>@if(refund.Status=="Approved"){<p>คืนเข้ากระเป๋า COURTBOOK แล้ว การจองนี้ถูกยกเลิก ยอดชำระในเอกสารเดิมเก็บไว้เป็นประวัติการรับเงิน</p>}<p>@refund.AdminNote</p></section>}
+@if(data.IncludedHours>0){<p>ใช้โควตาแพ็ก @data.IncludedHours ชั่วโมงสนาม รวมอยู่ในยอดส่วนลดแล้ว</p>}
+<div class="table-wrap"><table class="receipt-items"><thead><tr><th>รายการ</th><th>จำนวน</th><th>ราคาต่อหน่วย</th><th>รวม (บาท)</th></tr></thead><tbody>@foreach(var line in data.Lines){<tr><td>@line.Name</td><td>@line.Quantity @line.Unit</td><td>@CourtTime.Money(line.PriceSatang)</td><td>@CourtTime.Money(line.TotalSatang)</td></tr>}</tbody></table></div>
+<dl class="totals receipt-totals"><dt>ยอดก่อนส่วนลด</dt><dd>฿@CourtTime.Money(data.GrossSatang)</dd><dt>ส่วนลด</dt><dd>฿@CourtTime.Money(data.DiscountSatang)</dd><dt class="net">ชำระแล้วทั้งสิ้น</dt><dd class="net">฿@CourtTime.Money(data.NetSatang)</dd></dl>
+@if(!string.IsNullOrEmpty(data.PromotionName)){<p class="help">สิทธิ์ส่วนลด: @data.PromotionName</p>}
+<footer class="receipt-footer"><p>เลขที่เอกสาร @Model.Id · ออกเมื่อ @DateTimeOffset.Parse(Model.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น.</p><p>ตรวจสอบเลขอ้างอิงและสถานะล่าสุดกับเจ้าหน้าที่ COURTBOOK</p></footer>
+@if(admin&&Model.BookingId.HasValue){<p class="receipt-screen-only"><a class="button secondary" asp-controller="Admin" asp-action="Booking" asp-route-id="@Model.BookingId">ตรวจรายการจองในระบบ</a></p>}
+</article>
+@section Scripts {<script src="~/js/receipt.js" asp-append-version="true"></script>}

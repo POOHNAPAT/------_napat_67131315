@@ -20,7 +20,7 @@ public partial class BookingStore
               Id TEXT PRIMARY KEY, Name TEXT NOT NULL, Months INTEGER NOT NULL CHECK(Months IN (1,12)),
               PriceSatang INTEGER NOT NULL CHECK(PriceSatang>=0), DiscountPercent INTEGER NOT NULL CHECK(DiscountPercent BETWEEN 0 AND 100),
               IsActive INTEGER NOT NULL DEFAULT 0);
-            INSERT OR IGNORE INTO MembershipPlans VALUES('monthly','แพ็กรายเดือน',1,0,0,0),('yearly','แพ็กรายปี',12,0,0,0);
+            INSERT OR IGNORE INTO MembershipPlans(Id,Name,Months,PriceSatang,DiscountPercent,IsActive) VALUES('monthly','แพ็กรายเดือน',1,0,0,0),('yearly','แพ็กรายปี',12,0,0,0);
             CREATE TABLE IF NOT EXISTS Memberships (
               Id INTEGER PRIMARY KEY, UserId INTEGER NOT NULL REFERENCES Users(Id), PlanId TEXT NOT NULL REFERENCES MembershipPlans(Id),
               PlanName TEXT NOT NULL, PriceSatang INTEGER NOT NULL, DiscountPercent INTEGER NOT NULL,
@@ -111,31 +111,36 @@ public partial class BookingStore
     public IReadOnlyList<MembershipPlan> Plans()
     {
         using var c = Open();
-        using var cmd = Cmd(c, "SELECT Id,Name,Months,PriceSatang,DiscountPercent,IsActive FROM MembershipPlans ORDER BY Months");
+        using var cmd = Cmd(c, "SELECT Id,Name,Months,PriceSatang,DiscountPercent,IsActive,MonthlyHours,QuotaSportTypeId,QuotaSportName FROM MembershipPlans WHERE Id IN ('monthly','yearly') ORDER BY Months");
         using var r = cmd.ExecuteReader();
         var result = new List<MembershipPlan>();
-        while (r.Read()) result.Add(new(r.GetString(0),r.GetString(1),r.GetInt32(2),r.GetInt64(3),r.GetInt32(4),(Convert.ToInt32(r.GetValue(5)) != 0)));
+        while (r.Read()) result.Add(new(r.GetString(0),r.GetString(1),r.GetInt32(2),r.GetInt64(3),r.GetInt32(4),(Convert.ToInt32(r.GetValue(5)) != 0),r.GetInt32(6),r.GetInt64(7),r.GetString(8)));
         return result;
     }
 
     public bool SavePlan(PlanForm form)
     {
-        if (form.Id is not ("monthly" or "yearly") || form.Price < 1 || form.Price > 1000000 || form.DiscountPercent is < 1 or > 100)
+        if (form.Id is not ("monthly" or "yearly") || (form.Months.HasValue && form.Months != (form.Id=="monthly"?1:12)) || form.Price < 1 || form.Price > 1000000 || form.DiscountPercent is < 1 or > 100)
             throw new BookingRuleException("ราคาแพ็กหรือส่วนลดไม่ถูกต้อง");
+        if(form.MonthlyHours is <0 or >100)throw new BookingRuleException("กำหนดโควตา 0–100 ชั่วโมงต่อเดือน");
         using var c = Open();
-        using var cmd = Cmd(c, "UPDATE MembershipPlans SET PriceSatang=$price,DiscountPercent=$discount,IsActive=$active WHERE Id=$id", null,
-            ("$id", form.Id),("$price",Satang(form.Price)),("$discount",form.DiscountPercent),("$active",form.IsActive));
+        var sportName="";
+        if(form.MonthlyHours>0){using var sport=Cmd(c,"SELECT Name FROM SportTypes WHERE Id=$id",null,("$id",form.QuotaSportTypeId));sportName=sport.ExecuteScalar() as string??throw new BookingRuleException("เลือกประเภทกีฬาที่ใช้สิทธิ์แพ็ก");}
+        using var cmd = Cmd(c, "UPDATE MembershipPlans SET Months=CASE WHEN $months=0 THEN Months ELSE $months END,PriceSatang=$price,DiscountPercent=$discount,IsActive=$active,MonthlyHours=$quota,QuotaSportTypeId=$sport,QuotaSportName=$sportName WHERE Id=$id", null,
+            ("$id", form.Id),("$months",form.Months??0),("$price",Satang(form.Price)),("$discount",form.DiscountPercent),("$active",form.IsActive),("$quota",form.MonthlyHours),("$sport",form.MonthlyHours>0?form.QuotaSportTypeId:0),("$sportName",sportName));
         return cmd.ExecuteNonQuery() == 1;
     }
 
     private static Membership? ActiveMembership(DbConnection c, long userId, DbTransaction? tx = null)
     {
         using var cmd = Cmd(c, """
-            SELECT Id,PlanId,PlanName,Starts,Ends,DiscountPercent FROM Memberships
+            SELECT Id,PlanId,PlanName,Starts,Ends,DiscountPercent,MonthlyHours,QuotaSportTypeId,QuotaSportName FROM Memberships
             WHERE UserId=$user AND Starts<=$today AND Ends>$today ORDER BY Id DESC LIMIT 1
             """, tx,("$user",userId),("$today",CourtTime.Iso(CourtTime.Today)));
         using var r = cmd.ExecuteReader();
-        return r.Read() ? new(r.GetInt64(0),r.GetString(1),r.GetString(2),Date(r.GetString(3)),Date(r.GetString(4)),r.GetInt32(5)) : null;
+        if(!r.Read())return null;
+        var member=new Membership(r.GetInt64(0),r.GetString(1),r.GetString(2),Date(r.GetString(3)),Date(r.GetString(4)),r.GetInt32(5),r.GetInt32(6),r.GetInt64(7),r.GetString(8));r.Close();
+        return member with {Quotas=QuotaBalances(c,member,tx)};
     }
 
     public WalletPage Wallet(long userId)
@@ -153,18 +158,21 @@ public partial class BookingStore
     {
         if (form.Amount < 1 || form.Amount > 100000 || decimal.Round(form.Amount,2) != form.Amount)
             throw new BookingRuleException("ระบุยอดเติมเงิน 1–100,000 บาท ทศนิยมไม่เกิน 2 ตำแหน่ง");
-        if (string.IsNullOrWhiteSpace(form.TransferReference) || form.TransferReference.Trim().Length > 200)
-            throw new BookingRuleException("กรุณาระบุเลขรายการโอนไม่เกิน 200 ตัวอักษร");
+        if (form.TransferReference?.Trim().Length > 200)
+            throw new BookingRuleException("เลขรายการโอนต้องไม่เกิน 200 ตัวอักษร");
         var image = ReadUploadedImage(form.Slip) ?? throw new BookingRuleException("กรุณาแนบสลิปโอนเงิน");
+        var reference = string.IsNullOrWhiteSpace(form.TransferReference)
+            ? "SLIP-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(image.Data))
+            : form.TransferReference.Trim();
         using var c = Open();
         using var tx = BeginWrite(c);
         RequireMember(c,userId,tx);
-        using var used = Cmd(c,"SELECT COUNT(*) FROM Bookings WHERE lower(TransferReference)=lower($reference) OR SlipData=$image",tx,("$reference",form.TransferReference.Trim()),("$image",image.Data));
+        using var used = Cmd(c,"SELECT COUNT(*) FROM Bookings WHERE lower(TransferReference)=lower($reference) OR SlipData=$image",tx,("$reference",reference),("$image",image.Data));
         if ((long)used.ExecuteScalar()! > 0) throw new BookingRuleException("เลขโอนนี้เคยใช้ชำระค่าจองแล้ว");
         using var cmd = Cmd(c,"""
             INSERT INTO TopUps(UserId,AmountSatang,TransferReference,SlipData,SlipContentType,SlipHash,CreatedAt)
             VALUES($user,$amount,$reference,$image,$mime,$hash,$now) RETURNING Id
-            """,tx,("$user",userId),("$amount",Satang(form.Amount)),("$reference",form.TransferReference.Trim()),
+            """,tx,("$user",userId),("$amount",Satang(form.Amount)),("$reference",reference),
             ("$image",image.Data),("$mime",image.ContentType),("$hash",Convert.ToHexString(SHA256.HashData(image.Data))),("$now",DateTime.UtcNow.ToString("O")));
         try { var id=(long)cmd.ExecuteScalar()!; tx.Commit(); return id; }
         catch(DbException ex) when(IsUniqueViolation(ex)) { throw new BookingRuleException("เลขรายการโอนหรือสลิปนี้ถูกส่งแล้ว กรุณาตรวจประวัติหรือติดต่อผู้ดูแล"); }
@@ -222,25 +230,27 @@ public partial class BookingStore
         cmd.ExecuteNonQuery();
     }
 
-    public void BuyPlan(long userId, string planId, long expectedPriceSatang, int expectedDiscountPercent)
+    public long BuyPlan(long userId, string planId, long expectedPriceSatang, int expectedDiscountPercent, int? expectedMonths = null,int expectedMonthlyHours=0,long expectedQuotaSportTypeId=0)
     {
+        if(planId is not ("monthly" or "yearly")) throw new BookingRuleException("แพ็กนี้ไม่มีให้สมัครแล้ว กรุณาเลือกแพ็กรายเดือนหรือรายปี");
         using var c=Open(); using var tx=BeginWrite(c);
         RequireMember(c,userId,tx);
         if(ActiveMembership(c,userId,tx) is not null) throw new BookingRuleException("คุณมีแพ็กที่ใช้งานอยู่แล้ว ซื้อแพ็กใหม่ได้เมื่อแพ็กเดิมหมดอายุ");
-        using var find=Cmd(c,"SELECT Name,Months,PriceSatang,DiscountPercent FROM MembershipPlans WHERE Id=$id AND IsActive=1 AND PriceSatang>0 AND DiscountPercent>0",tx,("$id",planId));
+        using var find=Cmd(c,"SELECT Name,Months,PriceSatang,DiscountPercent,MonthlyHours,QuotaSportTypeId,QuotaSportName FROM MembershipPlans WHERE Id=$id AND IsActive=1 AND PriceSatang>0 AND DiscountPercent>0",tx,("$id",planId));
         using var r=find.ExecuteReader();
         if(!r.Read()) throw new BookingRuleException("แพ็กนี้ยังไม่เปิดขาย");
-        var name=r.GetString(0); var months=r.GetInt32(1); var price=r.GetInt64(2); var discount=r.GetInt32(3); r.Close();
-        if(price!=expectedPriceSatang || discount!=expectedDiscountPercent) throw new BookingRuleException("ราคาแพ็กหรือสิทธิ์เปลี่ยนแล้ว กรุณาตรวจรายละเอียดและซื้ออีกครั้ง");
+        var name=r.GetString(0); var months=r.GetInt32(1); var price=r.GetInt64(2); var discount=r.GetInt32(3);var quota=r.GetInt32(4);var sport=r.GetInt64(5);var sportName=r.GetString(6);r.Close();
+        if(quota!=expectedMonthlyHours || sport!=expectedQuotaSportTypeId || price!=expectedPriceSatang || discount!=expectedDiscountPercent || months!=(expectedMonths??(planId=="monthly"?1:planId=="yearly"?12:0))) throw new BookingRuleException("ราคาแพ็กหรือสิทธิ์เปลี่ยนแล้ว กรุณาตรวจรายละเอียดและซื้ออีกครั้ง");
         var starts=CourtTime.Today; var ends=starts.AddMonths(months);
         using var insert=Cmd(c,"""
-            INSERT INTO Memberships(UserId,PlanId,PlanName,PriceSatang,DiscountPercent,Starts,Ends,CreatedAt)
-            VALUES($user,$plan,$name,$price,$discount,$starts,$ends,$now) RETURNING Id
+            INSERT INTO Memberships(UserId,PlanId,PlanName,PriceSatang,DiscountPercent,Starts,Ends,CreatedAt,MonthlyHours,QuotaSportTypeId,QuotaSportName)
+            VALUES($user,$plan,$name,$price,$discount,$starts,$ends,$now,$quota,$sport,$sportName) RETURNING Id
             """,tx,("$user",userId),("$plan",planId),("$name",name),("$price",price),("$discount",discount),
-            ("$starts",CourtTime.Iso(starts)),("$ends",CourtTime.Iso(ends)),("$now",DateTime.UtcNow.ToString("O")));
+            ("$starts",CourtTime.Iso(starts)),("$ends",CourtTime.Iso(ends)),("$now",DateTime.UtcNow.ToString("O")),("$quota",quota),("$sport",sport),("$sportName",sportName));
         var id=(long)insert.ExecuteScalar()!;
         Debit(c,tx,userId,price,$"ซื้อ{name}",membershipId:id);
-        tx.Commit();
+        IssueMembershipReceipt(c,tx,id);
+        tx.Commit();return id;
     }
 
     public bool PayBookingWithWallet(long id, long userId)
@@ -255,6 +265,7 @@ public partial class BookingStore
         var amount=cmd.ExecuteScalar();
         if(amount is null) return false;
         Debit(c,tx,userId,(long)amount,$"ชำระค่าจอง CB{id:000000}",bookingId:id);
+        IssueBookingReceipt(c,tx,id);
         tx.Commit(); return true;
     }
 }
