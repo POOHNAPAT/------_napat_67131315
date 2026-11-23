@@ -1,0 +1,4 @@
+@model BookingListPage
+@{ViewData["Title"]="ประวัติการจอง";}
+<div class="section-heading page-heading"><div><p class="eyebrow">YOUR TIME ON COURT</p><h1>การจองของฉัน</h1><p>ตรวจสถานะ ดูรายละเอียด หรือจัดการรายการจองของคุณ</p></div><a class="button" asp-controller="Courts" asp-action="Index">+ จองสนามเพิ่ม</a></div>
+<partial name="_BookingFilters" model="Model"/><section class="panel"><partial name="_BookingTable" model="Model.Bookings"/></section>

@@ -1,0 +1,6 @@
+@model Court
+@if(Model.ImageUrl is not null){
+<img class="court-photo" src="@Model.ImageUrl" alt="@Model.Name · @Model.SportTypeName" loading="lazy" decoding="async"/>
+} else {
+<div class="court-photo-placeholder" role="img" aria-label="ยังไม่มีรูปภาพ @Model.Name"><span class="photo-court-lines" aria-hidden="true"></span><span class="photo-placeholder-caption">พื้นที่สำหรับเกมของคุณ</span></div>
+}

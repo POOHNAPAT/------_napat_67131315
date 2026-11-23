@@ -1,0 +1,4 @@
+@model CustomerPage
+@{ViewData["Title"]="บัญชีลูกค้า · "+Model.Account.Name;}
+<div class="page-heading"><h1>บัญชีลูกค้า</h1><dl class="details"><dt>ชื่อ</dt><dd>@Model.Account.Name</dd><dt>อีเมล</dt><dd>@Model.Account.Email</dd><dt>บทบาท</dt><dd>สมาชิก</dd><dt>จำนวนการจอง</dt><dd>@Model.Account.Bookings</dd></dl><a asp-action="Customers">กลับรายชื่อลูกค้า</a></div>
+<section class="panel"><h2>ประวัติการจอง</h2><partial name="_BookingTable" model="Model.Bookings"/></section>

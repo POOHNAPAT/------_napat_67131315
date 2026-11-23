@@ -1,0 +1,6 @@
+@model IReadOnlyList<Promotion>
+@{ViewData["Title"]="โปรโมชั่น";}
+<div class="page-heading"><p class="eyebrow">MORE PLAY, MORE VALUE</p><h1>โปรโมชั่นสำหรับทุกเกม</h1><p>เลือกได้ 1 โปรโมชั่นต่อการจอง ระบบจะตรวจสิทธิ์ตามวันที่ทำรายการและเงื่อนไขที่กำหนด</p></div>
+<div class="promotion-grid">@foreach(var promo in Model){<article class="promotion-card"><span class="pill">@promo.DiscountLabel</span><h2>@promo.Name</h2><p>@promo.Condition</p><small>@CourtTime.Display(promo.Starts) – @CourtTime.Display(promo.Ends)</small><a class="inline-link" asp-controller="Bookings" asp-action="Create" asp-route-promotionId="@promo.Id">ดูสนามและจอง →</a></article>}</div>
+@if(Model.Count==0){<div class="empty">ยังไม่มีโปรโมชั่นที่เปิดใช้งานในขณะนี้</div>}
+<p class="help">ส่วนลดไม่เกินยอดค่าจอง และไม่สามารถใช้หลายโปรโมชั่นร่วมกันได้</p>

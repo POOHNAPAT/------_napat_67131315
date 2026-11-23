@@ -1,0 +1,18 @@
+@model Booking
+@{ViewData["Title"]="ผลการจอง";}
+<div asp-validation-summary="All" class="validation alert" role="alert"></div>
+<section class="result-panel"><div class="check-icon status-@Model.Status">@(Model.Status=="Cancelled"?"×":Model.Status=="Pending"?"◷":"✓")</div><p class="eyebrow">YOUR BOOKING</p><h1>@(Model.Status=="Cancelled"?"ยกเลิกการจองแล้ว":"รายละเอียดการจอง")</h1><p class="muted">@Model.Reference · @Model.StatusLabel</p>
+@if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null && Model.NetSatang>0){<partial name="_QrPayment" model="Model"/>}
+else if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null){<p class="alert">ยอดสุทธิ 0 บาท ไม่ต้องโอนเงิน กรุณารอผู้ดูแลยืนยันสถานะรายการ</p>}
+@if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null && Model.PaymentSubmittedAt is null && Model.NetSatang>0){
+<section class="panel"><h2>ชำระจากกระเป๋าเงิน</h2><p>หักยอดค่าจอง ฿@CourtTime.Money(Model.NetSatang) จากกระเป๋าเงินของคุณ</p>
+@if(ViewBag.WalletBalance is long balance){<p>ยอดคงเหลือ ฿@CourtTime.Money(balance)</p>}
+<form asp-action="PayWallet" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('ยืนยันหักยอดค่าจองจากกระเป๋าเงิน?');"><button class="button" type="submit">ชำระ ฿@CourtTime.Money(Model.NetSatang) ด้วยกระเป๋าเงิน</button></form><a class="inline-link" asp-controller="Wallet" asp-action="Index" asp-fragment="topup">วิธีเติมเงิน / แจ้งเติมเงิน</a></section>
+}
+<h2 class="booking-record-heading">ข้อมูลรายการจอง</h2><partial name="_BookingDetails" model="Model"/>
+@if(Model.CanCancel){
+<details class="panel"><summary>ยกเลิกการจอง</summary><p>เมื่อยกเลิก ช่วงเวลานี้จะเปิดให้ผู้อื่นจอง และยังคงเก็บรายการไว้ในประวัติ</p><form method="post" asp-action="Cancel" asp-route-id="@Model.Id"><button class="button secondary" type="submit">ยืนยันยกเลิกการจอง</button></form></details>
+} else if((Model.PaidAt is not null || Model.PaymentSubmittedAt is not null) && Model.Status!="Cancelled") {
+<p class="help">หากต้องการยกเลิกรายการที่ชำระเงินแล้ว กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแลเพื่อจัดการคืนเงิน</a></p>
+}
+<div class="action-row"><a class="button" asp-action="History">ดูประวัติการจอง</a><a class="button secondary" asp-controller="Home" asp-action="Index">กลับหน้าแรก</a></div><p class="help">ข้อมูลนี้เป็นผลการจอง ไม่ใช่หลักฐานการชำระเงิน</p></section>

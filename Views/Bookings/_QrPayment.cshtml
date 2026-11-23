@@ -1,0 +1,11 @@
+@model Booking
+<section id="qr-payment" class="qr-payment" aria-labelledby="qr-payment-heading">
+<p class="eyebrow">PAYMENT / PROMPTPAY</p><h2 id="qr-payment-heading">@(Model.PaymentSubmittedAt is null?"ชำระค่าจองผ่าน QR":"หลักฐานการชำระเงิน")</h2>
+<div class="payment-amount"><span>ยอดตามรายการ · @Model.Reference</span><strong>฿@CourtTime.Money(Model.NetSatang)</strong><small>ยอดสุทธิหลังหักส่วนลดแล้ว</small></div>
+@if(Model.PaymentSubmittedAt is null){
+<div class="qr-payment-grid"><div class="qr-code-card"><img src="~/images/payment-qr.jpg" asp-append-version="true" alt="QR พร้อมเพย์สำหรับชำระค่าจองสนาม"/><a class="button secondary small" href="~/images/payment-qr.jpg" download="courtbook-payment-qr.jpg">บันทึกรูป QR ↓</a></div><div class="qr-instructions"><h3>โอนแล้วส่งหลักฐานได้เลย</h3><ol><li>สแกน QR หรือบันทึกรูปแล้วเลือกจากอัลบั้มในแอปธนาคาร</li><li>กรอกยอด <strong>฿@CourtTime.Money(Model.NetSatang)</strong> ตรวจชื่อผู้รับและยอดเงินก่อนยืนยันโอน</li><li>แนบสลิปและเลขรายการโอนด้านล่าง แล้วรอผู้ดูแลตรวจสอบ</li></ol><p class="help">QR นี้ไม่กำหนดยอดเงิน กรุณากรอกยอดของรายการนี้เอง การส่งสลิปยังไม่ใช่การยืนยันรับเงิน</p></div></div>
+} else {
+<p class="alert">ส่งหลักฐานแล้ว กำลังรอผู้ดูแลตรวจสอบ กรุณาอย่าโอนซ้ำ</p><a class="inline-link" asp-action="PaymentSlip" asp-route-id="@Model.Id" target="_blank" rel="noopener">ดูสลิปที่ส่งไว้ ↗</a>
+}
+<details class="payment-proof" open="@(Model.PaymentSubmittedAt is null)"><summary>@(Model.PaymentSubmittedAt is null?"แจ้งโอนเงิน / ส่งสลิป":"แก้ไขหลักฐานที่ส่งไว้")</summary><form method="post" asp-action="SubmitPayment" asp-route-id="@Model.Id" enctype="multipart/form-data"><label for="transfer-reference">เลขรายการโอนจากสลิป</label><input id="transfer-reference" name="TransferReference" value="@Model.TransferReference" maxlength="200" required/><label for="payment-slip">รูปสลิปโอนเงิน</label><input id="payment-slip" name="Slip" type="file" accept="image/jpeg,image/png,image/webp" required/><p class="help">JPG, PNG หรือ WebP ไม่เกิน 5 MB · ผู้ดูแลและเจ้าของรายการเท่านั้นที่เปิดดูสลิปได้</p><button class="button full" type="submit">ส่งหลักฐานให้ผู้ดูแลตรวจสอบ →</button></form></details>
+</section>

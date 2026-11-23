@@ -1,0 +1,26 @@
+@model CourtForm
+@{ViewData["Title"]=Model.Id==0?"เพิ่มสนาม":"แก้ไขสนาม";}
+<div class="page-heading"><p class="eyebrow">COURT STUDIO</p><h1>@ViewData["Title"]</h1><p>ให้ลูกค้าเห็นบรรยากาศสนามจริง ก่อนเลือกเวลาเล่น</p></div>
+<form asp-action="Court" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="court-editor">
+<input asp-for="Id" type="hidden"/>
+<div asp-validation-summary="All" class="validation alert editor-validation" role="alert"></div>
+<section class="panel court-editor-photo"><p class="eyebrow">01 / COURT PHOTO</p><h2>ภาพสนามของคุณ</h2><p class="muted">เลือกมุมที่เห็นพื้นที่เล่นและบรรยากาศชัดเจน</p>
+<div class="upload-preview"><img id="court-image-preview" src="@Model.CurrentImageUrl" alt="ภาพตัวอย่างสนาม" hidden="@(Model.CurrentImageUrl is null)"/><div id="court-image-empty" class="upload-empty" hidden="@(Model.CurrentImageUrl is not null)"><span class="upload-icon" aria-hidden="true">↥</span><strong>เพิ่มภาพให้สนามของคุณ</strong><span>ภาพแนวนอนจะดูสวยที่สุด</span></div><span class="preview-label">ภาพตัวอย่าง</span></div>
+<label asp-for="Image" class="upload-label">เลือกรูปสนาม</label><input asp-for="Image" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="image-help image-feedback"/>
+<p id="image-help" class="help">JPG, PNG หรือ WebP · ไม่เกิน 5 MB · แนะนำภาพแนวนอน 1600 × 1000 พิกเซล</p><p id="image-feedback" class="help" role="status"></p>
+@if(Model.CurrentImageUrl is not null){<label class="checkbox"><input asp-for="RemoveImage"/> ลบรูปเดิม (หากเลือกรูปใหม่ จะใช้รูปใหม่แทน)</label>}
+<p class="photo-placement-note">รูปนี้จะแสดงในหน้าแรก รายการสนาม และหน้าจองของลูกค้า</p></section>
+<section class="panel court-editor-fields"><p class="eyebrow">02 / COURT DETAILS</p><h2>รายละเอียดสนาม</h2>
+<label asp-for="Name">ชื่อสนาม</label><input asp-for="Name" maxlength="100" required placeholder="เช่น สนามแบดมินตัน A"/>
+<label asp-for="SportTypeId">ประเภทกีฬา</label><select asp-for="SportTypeId">@foreach(var sport in (IReadOnlyList<SportType>)ViewBag.SportTypes){<option value="@sport.Id">@sport.Name</option>}</select>
+<label asp-for="Description">บรรยากาศและสิ่งอำนวยความสะดวก</label><textarea asp-for="Description" maxlength="500" rows="4" placeholder="พื้นสนาม แสงสว่าง ห้องน้ำ หรือที่จอดรถ"></textarea>
+<label asp-for="Price">ราคาต่อชั่วโมง (บาท)</label><input asp-for="Price" type="number" min="1" max="100000" step="0.01" required/>
+<label class="checkbox"><input asp-for="IsActive"/> เปิดให้ลูกค้าจองสนามนี้</label>
+<button class="button full" type="submit">บันทึกสนาม ↗</button><a class="editor-back" asp-action="Courts">กลับรายการสนาม</a><p class="help">ราคาใหม่มีผลเฉพาะรายการจองใหม่ การแก้ไขข้อมูลโดยไม่เลือกรูปจะเก็บรูปเดิมไว้</p></section>
+</form>
+@if(Model.Id != 0){
+<form asp-action="DeleteCourt" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('ยืนยันลบสนามนี้หรือไม่? สนามจะไม่แสดงและจองใหม่ไม่ได้ ประวัติและรายการจองเดิมยังคงอยู่');">
+<button class="button secondary" type="submit">ลบสนามนี้</button><p class="help">เมื่อลบสนาม ประวัติและรายการจองเดิมยังคงอยู่</p>
+</form>
+}
+@section Scripts {<script src="~/js/court-image.js" asp-append-version="true"></script>}

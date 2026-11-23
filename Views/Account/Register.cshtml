@@ -1,0 +1,11 @@
+@model RegisterForm
+@{ViewData["Title"]="สมัครสมาชิก";}
+<div class="auth-shell"><aside class="auth-intro"><span class="auth-mark" aria-hidden="true">↗</span><p class="eyebrow">YOUR NEXT GAME STARTS HERE</p><h2>เวลาของคุณ<br/><span>เริ่มเกมได้เลย.</span></h2><p>สมัครสมาชิกเพื่อจองสนาม ดูประวัติ และติดตามสถานะรายการของคุณ</p></aside>
+<section class="form-panel"><p class="eyebrow">JOIN THE CLUB</p><h1>สร้างบัญชีสมาชิก</h1><p class="muted">สมัครแล้วเลือกเวลาที่เหมาะกับเกมของคุณได้เลย</p>
+<form method="post" asp-action="Register"><div asp-validation-summary="All" class="validation" role="alert"></div><input asp-for="ReturnUrl" type="hidden"/>
+<label asp-for="Name">ชื่อ</label><input asp-for="Name" autocomplete="name" maxlength="100" required/>
+<label asp-for="Email">อีเมล</label><input asp-for="Email" type="email" autocomplete="email" maxlength="150" required/>
+<label asp-for="Password">รหัสผ่าน</label><input asp-for="Password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required/><small class="help">อย่างน้อย 8 ตัวอักษร</small>
+<label asp-for="ConfirmPassword">ยืนยันรหัสผ่าน</label><input asp-for="ConfirmPassword" type="password" autocomplete="new-password" required/>
+<button class="button full" type="submit">สมัครสมาชิก →</button></form>
+<p class="form-bottom">มีบัญชีแล้ว? <a asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl">เข้าสู่ระบบ</a></p></section></div>

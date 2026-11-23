@@ -1,0 +1,11 @@
+{
+  "pages": 13,
+  "extraForms": 3,
+  "mobileWidths": [
+    390
+  ],
+  "bookingNetBaht": 510,
+  "javascriptErrors": [],
+  "productionDatabaseChanged": false,
+  "source": "Real MVC views, isolated SQLite, Testing environment"
+}

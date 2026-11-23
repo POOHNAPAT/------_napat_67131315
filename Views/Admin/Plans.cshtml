@@ -1,0 +1,12 @@
+@model IReadOnlyList<MembershipPlan>
+@{ViewData["Title"]="จัดการแพ็กสมาชิก";}
+<div class="page-heading"><p class="eyebrow">MEMBERSHIP PLANS</p><h1>จัดการแพ็กสมาชิก</h1><p>กำหนดราคาและส่วนลดก่อนเปิดขาย การเปลี่ยนแปลงมีผลกับการซื้อใหม่เท่านั้น</p></div>
+<div asp-validation-summary="All" class="validation alert" role="alert"></div>
+<div class="admin-court-grid">
+@foreach(var plan in Model){<section class="panel"><h2>@plan.Name</h2><form asp-action="Plans" method="post">
+<input type="hidden" name="Id" value="@plan.Id"/>
+<label for="price-@plan.Id">ราคาแพ็ก (บาท) / @plan.Months เดือน</label><input id="price-@plan.Id" name="Price" type="number" min="1" max="1000000" step="0.01" value="@((plan.PriceSatang/100m).ToString(System.Globalization.CultureInfo.InvariantCulture))" required/>
+<label for="discount-@plan.Id">ส่วนลดค่าจอง (%)</label><input id="discount-@plan.Id" name="DiscountPercent" type="number" min="1" max="100" value="@plan.DiscountPercent" required/>
+<label class="checkbox"><input type="checkbox" name="IsActive" value="true" checked="@plan.IsActive"/> เปิดขาย</label>
+<button class="button" type="submit">บันทึก@(plan.Name)</button></form></section>}
+</div><p class="help">ลูกค้าซื้อได้ครั้งละ 1 แพ็กที่ใช้งานอยู่ สิทธิ์เป็นส่วนลดค่าจอง ไม่ใช่ชั่วโมงเล่นฟรี และไม่รวมซ้อนกับโปรโมชั่น</p>

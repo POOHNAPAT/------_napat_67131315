@@ -1,0 +1,3 @@
+@model BookingListPage
+@{ViewData["Title"]="รายการจองทั้งหมด";}
+<div class="page-heading"><p class="eyebrow">BOOKINGS</p><h1>รายการจองทั้งหมด</h1><p>ค้นหาตามสนาม วันที่ และสถานะ พร้อมตรวจรายละเอียดของแต่ละรายการ</p></div><partial name="_BookingFilters" model="Model"/><section class="panel"><partial name="_BookingTable" model="Model.Bookings"/></section>

@@ -1,0 +1,5 @@
+@model IReadOnlyList<SportType>
+@{ViewData["Title"]="ประเภทกีฬา";}
+<div class="page-heading"><p class="eyebrow">SPORT TYPES</p><h1>ประเภทกีฬา</h1><p>เพิ่มประเภทกีฬา แล้วเลือกให้สนามในหน้าจัดการสนาม</p></div>
+<section class="panel"><form method="post" asp-action="SportTypes"><div asp-validation-summary="All" class="validation" role="alert"></div><label for="sport-name">ชื่อประเภทกีฬา</label><input id="sport-name" name="Name" maxlength="100" required placeholder="เช่น ฟุตบอล บาสเกตบอล เทนนิส"/><button class="button" type="submit">เพิ่มประเภทกีฬา</button></form></section>
+<section class="panel"><div class="table-wrap"><table><thead><tr><th>ประเภทกีฬา</th></tr></thead><tbody>@foreach(var sport in Model){<tr><td>@sport.Name</td></tr>}</tbody></table></div><a asp-action="Court" asp-route-id="0">เพิ่มสนาม →</a></section>

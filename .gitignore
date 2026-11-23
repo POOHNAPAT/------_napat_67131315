@@ -1,0 +1,11 @@
+bin/
+obj/
+App_Data/
+artifacts/
+__pycache__/
+
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+*.migration.sql

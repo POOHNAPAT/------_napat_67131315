@@ -1,0 +1,9 @@
+@model LoginForm
+@{var adminPortal = Context.Items["AdminPortal"] is true; ViewData["Title"]=adminPortal ? "เข้าสู่ระบบผู้ดูแล" : "เข้าสู่ระบบลูกค้า";}
+<div class="auth-shell"><aside class="auth-intro"><span class="auth-mark" aria-hidden="true">↗</span><p class="eyebrow">@(adminPortal ? "COURTBOOK MANAGEMENT" : "WELCOME TO THE CLUB")</p><h2>@(adminPortal ? "ดูแลทุกสนาม" : "เกมดี ๆ")<br/><span>@(adminPortal ? "ให้พร้อมทุกเกม." : "เริ่มต้นที่นี่.")</span></h2><p>@(adminPortal ? "จัดการสนาม ดูแลสมาชิก และตรวจสอบรายการจองได้ในที่เดียว" : "เลือกสนามที่ชอบ จองเวลาที่ใช่ แล้วมาเล่นด้วยกัน")</p></aside>
+<section class="form-panel"><p class="eyebrow">WELCOME BACK</p><h1>@ViewData["Title"]</h1><p class="muted">@(adminPortal ? "จัดการสนาม ตารางเวลา และรายการจอง" : "เกมถัดไปของคุณเริ่มตรงนี้")</p>
+<form method="post" asp-action="Login"><div asp-validation-summary="All" class="validation" role="alert"></div><input asp-for="ReturnUrl" type="hidden"/>
+<label asp-for="Email">อีเมล</label><input asp-for="Email" type="email" autocomplete="username" required/>
+<label asp-for="Password">รหัสผ่าน</label><input asp-for="Password" type="password" autocomplete="current-password" required/>
+<button class="button full" type="submit">เข้าสู่ระบบ →</button></form>
+@if(!adminPortal){<p class="form-bottom">ยังไม่มีบัญชี? <a asp-action="Register" asp-route-returnUrl="@Model.ReturnUrl">สมัครสมาชิก</a></p>}</section></div>
