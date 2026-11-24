@@ -1,0 +1,8 @@
+@model BookingEntryPass
+@{ViewData["Title"]="QR เช็กอิน · "+Model.Booking.Reference;var booking=Model.Booking;}
+<div class="page-heading"><h1>QR สำหรับเข้าใช้สนาม</h1><p>เปิดหน้านี้จากบัญชีของคุณ แล้วให้พนักงานสแกนและตรวจชื่อผู้จอง</p></div>
+<section class="panel entry-pass"><div class="section-heading"><h2>@booking.CourtName</h2><span class="pill">@booking.StatusLabel</span></div><p>@booking.MemberName</p><p>@CourtTime.Display(booking.Date) · @booking.TimeLabel · @booking.Players คน</p><p>@(booking.NetSatang==0?"ไม่มียอดค้างชำระ":booking.PaymentStatusLabel)</p>
+@if(booking.CheckIn is { } entry){<div class="alert success" role="status"><strong>เช็กอินแล้ว</strong><p>@DateTimeOffset.Parse(entry.CheckedInAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น. · ผู้ตรวจ @entry.StaffName</p></div>}
+@if(Model.Payload is not null){<img class="entry-qr" id="entry-qr" src="@Url.Action("EntryQr",new{id=booking.Id})" alt="QR เช็กอินของ @booking.Reference"/><p><a class="button secondary" asp-action="EntryQr" asp-route-id="@booking.Id" download="@($"checkin-{booking.Reference}.png")">บันทึก QR</a></p><p class="help">เช็กอินได้ในวันที่จอง ตั้งแต่ 15 นาทีก่อนเริ่ม จนถึงก่อนหมดเวลาจอง</p>}
+else{<p class="alert">@(booking.CheckInBlockReason(CourtTime.Now)??"ยังไม่สามารถแสดง QR ได้")</p>}
+<p>รหัสจองสำรอง</p><strong class="entry-backup-code">@booking.Reference</strong><p class="help">หากสแกนไม่ได้ แจ้งรหัสนี้พร้อมชื่อผู้จองให้พนักงานตรวจสอบ</p><a class="inline-link" asp-action="Result" asp-route-id="@booking.Id">กลับรายละเอียดการจอง</a></section>

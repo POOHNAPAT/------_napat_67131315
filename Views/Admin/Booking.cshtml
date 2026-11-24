@@ -1,6 +1,7 @@
 @model Booking
 @{ViewData["Title"]="รายละเอียด "+Model.Reference;}
 <section class="result-panel booking-management"><div class="booking-management-heading"><div><p class="eyebrow">BOOKING DETAILS</p><h1>รายละเอียด @Model.Reference</h1></div><a class="inline-link" asp-action="Bookings">← กลับรายการจอง</a></div><div asp-validation-summary="All" class="validation" role="alert"></div><partial name="_BookingDetails" model="Model"/>
+<partial name="_BookingCheckout" model="Model"/>
 @if(Model.ApprovalStatus=="Pending" || Model.PaidAt is not null){
 <section class="booking-action-panel" aria-labelledby="booking-actions-heading"><h2 id="booking-actions-heading">จัดการการจอง</h2>
 @if(Model.ApprovalStatus=="Pending"){<p class="help">ตรวจสอบข้อมูลสนาม วันเวลา และสถานะการชำระก่อนยืนยันการจอง</p>}
@@ -14,4 +15,12 @@
 <section class="panel"><h2>ตรวจหลักฐานโอนจากระบบเดิม</h2><p>ตรวจสอบว่าได้รับเงินจริงครบ ฿@CourtTime.Money(Model.NetSatang) ก่อนยืนยัน เฉพาะรายการที่แจ้งโอนไว้ก่อนเปลี่ยนเป็นกระเป๋าเงิน</p><form method="post" asp-action="ConfirmPayment" asp-route-id="@Model.Id" class="payment-confirmation-form"><label for="payment-reference">เลขอ้างอิง / รายละเอียดรับเงิน</label><input id="payment-reference" name="Reference" value="@(Model.TransferReference.StartsWith("SLIP-") ? "" : Model.TransferReference)" maxlength="200" required/><div class="action-group"><button class="button" type="submit">ยืนยันหลักฐานเดิม ฿@CourtTime.Money(Model.NetSatang)</button></div></form></section>
 }
 @if(Model.ApprovalStatus is "Pending" or "Confirmed"&&Model.PaidAt is null&&Model.PaymentSubmittedAt is null&&Model.NetSatang>0){<p class="alert">ลูกค้าชำระผ่านกระเป๋าเงินเท่านั้น ผู้ดูแลตรวจคำขอเติมเงินได้ที่ <a asp-action="TopUps">คำขอเติมเงิน</a> แล้วให้ลูกค้ากลับไปยืนยันชำระค่าจอง</p>}
-<div class="booking-management-footer"><a class="button secondary" asp-action="EquipmentHandover" asp-route-id="@Model.Id">รับ–คืนอุปกรณ์</a>@if(Model.ApprovalStatus!="Cancelled"){<a class="button secondary" asp-action="ReportDamage" asp-route-id="@Model.Id">เปิดรายงานความเสียหาย</a>}<a class="button secondary" asp-action="DamageReports">รายงานสนามและอุปกรณ์ชำรุด</a><a class="inline-link" asp-action="Bookings">← กลับรายการจอง</a></div></section>
+<div class="booking-management-footer">
+<div class="action-group action-grid" role="group" aria-label="การเข้าสนามและดูแลอุปกรณ์">
+<a class="button secondary" asp-action="CheckIn" asp-route-id="@Model.Id">ตรวจสอบ / เช็กอิน</a>
+<a class="button secondary" asp-action="EquipmentHandover" asp-route-id="@Model.Id">รับ–คืนอุปกรณ์</a>
+@if(Model.ApprovalStatus!="Cancelled"){<a class="button secondary" asp-action="ReportDamage" asp-route-id="@Model.Id">เปิดรายงานความเสียหาย</a>}
+<a class="button secondary" asp-action="DamageReports">รายงานสนามและอุปกรณ์ชำรุด</a>
+</div>
+<a class="inline-link" asp-action="Bookings">← กลับรายการจอง</a>
+</div></section>

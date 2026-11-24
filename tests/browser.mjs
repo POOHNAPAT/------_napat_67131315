@@ -132,6 +132,12 @@ try {
     const result = await call('Page.captureScreenshot',{format:'png',captureBeyondViewport:true,clip:{x:0,y:0,width,height,scale:1}});
     await writeFile(path.join(output,name+'.png'),Buffer.from(result.data,'base64'));
   }
+  if(process.env.COURTBOOK_CHECKIN_ONLY==='1'){
+    const {runCheckInScenario}=await import('./checkin_browser_scenario.mjs');
+    await runCheckInScenario({call,evaluate,waitFor,waitPath,navigate,fill,submit,screenshot,base,adminBase,temp,output,setBase:value=>{activeBase=value;}});
+    if(clientErrors.length)throw new Error('Check-in browser errors: '+clientErrors.join(', '));
+    await call('Browser.close').catch(()=>{});
+  }else{
   const password='Browser-test-123!';
   await navigate('/');
   if(await evaluate("document.querySelector('main').innerText.includes('@category')")) throw new Error('Unrendered Razor expression in sport categories');
@@ -181,7 +187,7 @@ try {
   }
   activeBase=base;await navigate('/Account/Profile');
   await navigate('/Wallet'); await screenshot('31-wallet');
-  if(!await evaluate("document.querySelector('form[action=\"/Wallet/TopUp\"]') !== null")) throw new Error('Wallet top-up form missing');
+  if(!await evaluate("document.querySelector('form[action=\"/Wallet/StartDemoPayment\"]') !== null")) throw new Error('Wallet demo credit form missing');
   await navigate('/Bookings/Create?courtId=1');
   await evaluate("(() => {const f=document.getElementById('booking-form');const first=f.querySelector('[name=Hours][value=\"8\"]');first.checked=true;const elapsed=Date.parse(first.dataset.slotStart)-Number(f.dataset.serverNow)+performance.now()+2000;Object.defineProperty(performance,'now',{configurable:true,value:()=>elapsed});window.dispatchEvent(new Event('focus'));})()");
   await waitFor("document.querySelector('[name=Hours][value=\"8\"]').disabled && !document.querySelector('[name=Hours][value=\"8\"]').checked");
@@ -256,7 +262,7 @@ try {
   activeBase=base;
   await navigate('/Bookings/Result/1');
   await evaluate("document.querySelector('#wallet-payment a[href*=\"/Wallet\"]').click()");await waitPath('/Wallet');
-  if(!await evaluate("document.getElementById('topup-amount').value==='510' || document.getElementById('topup-amount').value==='510.00'"))throw new Error('Wallet shortfall does not use the saved discounted amount');
+  if(!await evaluate("Number(document.getElementById('demo-amount').value)===510"))throw new Error('Wallet shortfall does not use the saved discounted amount');
   if(!await evaluate("new URLSearchParams(location.search).get('bookingId')==='1'"))throw new Error('Top-up lost its original booking');
   await screenshot('26-wallet-shortfall');
   await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
@@ -264,18 +270,13 @@ try {
   await screenshot('27-mobile-wallet-shortfall');
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
   if(await evaluate("!!document.querySelector('input[name=TransferReference]')")) throw new Error('Transfer reference input should be removed');
-  const slipDocument=await call('DOM.getDocument');
-  const slipInput=await call('DOM.querySelector',{nodeId:slipDocument.root.nodeId,selector:'#topup-slip'});
-  // A test image proves uploading evidence never automatically confirms payment.
-  await call('DOM.setFileInputFiles',{nodeId:slipInput.nodeId,files:[uploadFixture]});
-  await evaluate("document.querySelector('form[action*=\"/Wallet/TopUp\"]').requestSubmit()");
-  await waitFor("document.querySelector('#topup-requests').innerText.includes('TU000001')");
-  await screenshot('28-topup-pending');
-  activeBase=adminBase;
-  await navigate('/Admin/TopUps');await screenshot('29-admin-topup-review');
-  await evaluate("window.confirm=()=>true;document.querySelector('input[name=approve][value=true]').form.requestSubmit()");
-  await waitFor("document.querySelector('main').innerText.includes('เติมเงินสำเร็จ')");
-  activeBase=base;await navigate('/Wallet?bookingId=1');await screenshot('75-topup-approved-return');
+  if(await evaluate("document.getElementById('topup-slip')!==null || document.querySelector('form[action*=\"/Wallet/TopUp\"]')!==null"))throw new Error('Removed bank transfer form returned');
+  await evaluate("document.querySelector('form[action*=StartDemoPayment]').requestSubmit()");
+  await waitFor("location.pathname.startsWith('/Wallet/DemoPayment/')&&document.readyState==='complete'");
+  if(!await evaluate("new URLSearchParams(location.search).get('bookingId')==='1'"))throw new Error('Demo top-up lost the original booking');
+  await screenshot('28-demo-topup-confirmation');
+  await evaluate("document.querySelector('button[name=outcome][value=Paid]').click()");await waitPath('/Wallet');
+  await screenshot('75-demo-topup-return');
   await evaluate("document.querySelector('#checkout-return a').click()");await waitPath('/Bookings/Result/1');
   await evaluate("window.confirm=()=>true;document.querySelector('form[action*=PayWallet]').requestSubmit()");
   await waitFor("document.querySelector('a[href*=\"/Receipts/Details/RC-BK-000001\"]')!==null");
@@ -615,11 +616,16 @@ try {
     if(await evaluate("document.querySelector('form[action*=ReturnEquipment]')!==null"))throw new Error('Customer can edit physical returns');
     await screenshot(`74-customer-handover-${width}`);activeBase=adminBase;
   }
+  if(process.env.COURTBOOK_SITE_AUDIT==='1'){
+    const {runSiteAudit}=await import('./site_audit_scenario.mjs');
+    await runSiteAudit({call,evaluate,navigate,screenshot,base,adminBase,output,setBase:value=>{activeBase=value;}});
+  }
   if(clientErrors.length) throw new Error('Browser errors: '+clientErrors.join(', '));
   await writeFile(path.join(output,'verification.json'),JSON.stringify({pages:13,extraForms:3,mobileWidths:[360,390,768],bookingNetBaht:510,damageClaimAcceptedBaht:25,
     javascriptErrors:clientErrors,productionDatabaseChanged:false,source:'Real MVC views, isolated SQLite, Testing environment'},null,2));
-  console.log('PASS: Wallet-only booking, exact shortfall top-up, admin top-up review, explicit wallet payment, receipts, damage, inventory and responsive layouts; no JS errors.');
+  console.log('PASS: Wallet-only booking, demo top-up, explicit wallet payment, receipts, damage, inventory and responsive layouts; no JS errors.');
   await call('Browser.close').catch(()=>{});
+  }
 } finally {
   ws?.close();
   if(server && server.exitCode===null) server.kill();

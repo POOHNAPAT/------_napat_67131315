@@ -1,4 +1,8 @@
 @model Booking
+@if(Model.CheckOut is { } departure){<div class="checkin-history"><strong>เช็กเอาต์แล้ว · รับคืนอุปกรณ์ครบ</strong><p>@DateTimeOffset.Parse(departure.CheckedOutAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น. · ผู้ตรวจ @departure.StaffName</p></div>}
+else if(Model.OutstandingEquipment>0){<p class="alert">@(Model.Ends<=CourtTime.Now?"หมดเวลา · รอคืนอุปกรณ์":"อุปกรณ์อยู่กับลูกค้า") · ค้างคืน @Model.OutstandingEquipment ชิ้น</p>}
+else if(Model.CheckIn is not null&&Model.Ends<=CourtTime.Now){<p class="alert">หมดเวลา · รอผู้ดูแลตรวจสอบและยืนยันเช็กเอาต์</p>}
+@if(Model.CheckIn is { } entry){<div class="checkin-history"><strong>เช็กอินแล้ว</strong><p>@DateTimeOffset.Parse(entry.CheckedInAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น. · ผู้ตรวจ @entry.StaffName</p></div>}
 @if(Model.CancelledAt is not null){<p class="help">ลูกค้ายกเลิกเมื่อ @DateTimeOffset.Parse(Model.CancelledAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture) น.</p>}
 @if(Model.IncludedHours>0){<p class="alert success">ใช้โควตาแพ็ก @Model.IncludedHours ชั่วโมงสนาม · รวมอยู่ในยอดส่วนลดแล้ว</p>}
 <p><span class="pill">@Model.PaymentStatusLabel</span></p>

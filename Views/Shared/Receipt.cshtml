@@ -1,6 +1,12 @@
 @model PaymentReceipt
 @{ViewData["Title"]=Model.Id+" · "+Model.Title;var data=Model.Data;var admin=Context.Items["AdminPortal"] is true;}
-<div class="receipt-actions"><a class="button secondary" asp-controller="@(admin?"Admin":"Receipts")" asp-action="@(admin?"Bookings":"Index")">@(admin?"กลับรายการจอง":"ใบเสร็จของฉัน")</a><button class="button" type="button" id="print-receipt">พิมพ์ / บันทึก PDF</button></div>
+<div class="receipt-actions" role="group" aria-label="จัดการใบเสร็จและการเข้าสนาม">
+<div class="receipt-navigation">
+<a class="button secondary" asp-controller="@(admin?"Admin":"Receipts")" asp-action="@(admin?"Bookings":"Index")">@(admin?"กลับรายการจอง":"ใบเสร็จของฉัน")</a>
+@if(Model.Booking is Booking booking&&booking.HasEntryPass){<a class="button secondary" asp-controller="@(admin?"Admin":"Bookings")" asp-action="@(admin?"CheckIn":"EntryPass")" asp-route-id="@booking.Id">@(admin?"ตรวจสอบ / เช็กอิน":"แสดง QR เช็กอิน")</a>}
+</div>
+<button class="button" type="button" id="print-receipt">พิมพ์ / บันทึก PDF</button>
+</div>
 <article class="receipt-document" aria-label="@Model.Title"><header class="receipt-heading"><div><strong class="receipt-brand">COURTBOOK</strong><p>ระบบจองสนามกีฬาออนไลน์</p></div><div><h1>@Model.Title</h1><p class="reference">@Model.Id</p></div></header>
 <div class="receipt-meta"><section><h2>ผู้ชำระเงิน</h2><p>@data.MemberName<br/>@data.MemberEmail</p></section><section><h2>ข้อมูลการชำระ</h2><p>วันที่ชำระ @DateTimeOffset.Parse(data.PaidAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น.<br/>อ้างอิงรายการ @data.SourceReference<br/>@data.PaymentReference</p></section></div>
 @if(data.Kind=="Booking"){

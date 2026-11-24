@@ -53,7 +53,8 @@ def run():
                 check(sql('SELECT PaidAt FROM Bookings WHERE Id=?',(booking,))[0][0] is None and 'action="/Admin/ConfirmPayment/' not in admin.request(f'/Admin/Booking/{booking}')[2],'Admin cannot bypass wallet payment for a new booking')
                 sql('INSERT INTO WalletEntries(UserId,AmountSatang,Description,CreatedAt) VALUES(?,?,?,?)',(user,due-1,'Existing balance fixture',dt.datetime.now(dt.timezone.utc).isoformat()))
                 page=member.request(destination+'&amount=999999&returnUrl=https://evil.example')[2]
-                check(re.search(r'id="topup-amount"[^>]*value="0.01"',page) is not None,'Shortfall is calculated from server balance, down to one satang')
+                check('ขาดอีก ฿0.01' in html.unescape(page) and re.search(r'id="demo-amount"[^>]*value="1',page) is not None,'Shortfall uses server balance and explains the one-baht demo minimum')
+                check('id="topup-slip"' not in page,'Removed manual transfer form stays absent')
                 check(other.request(destination)[0]==404 and member.request(destination+'&planId=monthly')[0]==400,'Checkout continuation validates ownership and accepts only one destination')
                 check(member.request('/Wallet?damageId=999999')[0]==404,'Unknown repair charge cannot become a checkout destination')
                 before=sql('SELECT COUNT(*) FROM TopUps')[0][0]
@@ -79,7 +80,7 @@ def run():
                 admin.post('/Admin/Plans',{'Id':'monthly','Price':100,'DiscountPercent':10,'IsActive':'true'})
                 check('planId=monthly' in member.request('/Home/Membership')[2],'Membership shortfalls link to a plan-specific top-up')
                 page=member.request('/Wallet?planId=monthly')[2]
-                check(re.search(r'id="topup-amount"[^>]*value="100',page) is not None,'Plan top-up uses the current price and actual balance')
+                check(re.search(r'id="demo-amount"[^>]*value="100',page) is not None,'Plan demo top-up uses the current price and actual balance')
                 response=member.post('/Wallet/StartDemoPayment?planId=monthly',{'Amount':100},token_page='/Wallet?planId=monthly')
                 demo=html.unescape(re.search(r'action="([^"]*CompleteDemoPayment[^"]*)"',response[2])[1])
                 check('planId=monthly' in demo,'Demo checkout preserves the original destination without charging it')
@@ -92,7 +93,7 @@ def run():
                 admin.post(f'/Damage/Assess/{report}',{'Revision':0,'Amount':20,'Reason':'Documented material repair cost'},token_page='/Admin/DamageReports')
                 member.post(f'/Damage/Respond/{report}',{'Revision':1,'Decision':'Accept'},token_page='/Bookings/ReportDamage')
                 check(f'damageId={report}' in member.request('/Bookings/ReportDamage')[2],'Accepted repair charge links to its own shortfall top-up')
-                check(re.search(r'id="topup-amount"[^>]*value="20',member.request(f'/Wallet?damageId={report}')[2]) is not None,'Repair shortfall uses the accepted current assessment')
+                check(re.search(r'id="demo-amount"[^>]*value="20',member.request(f'/Wallet?damageId={report}')[2]) is not None,'Repair shortfall uses the accepted current assessment')
                 stop();start()
                 check(sql('SELECT CheckoutPath FROM TopUps WHERE Id=?',(topup,))[0][0]==result and sql('PRAGMA foreign_key_check')==[],'Restart preserves top-up destinations and valid relationships')
                 # Reconstruct the previous minimum and missing checkout column in this disposable fixture.

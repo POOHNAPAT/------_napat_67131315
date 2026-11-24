@@ -261,11 +261,15 @@ public partial class BookingStore
         using var cmd=Cmd(c,"""
             UPDATE Bookings SET PaidAt=$now,PaymentReference=$reference
             WHERE Id=$id AND UserId=$user AND Status IN ('Pending','Confirmed')
-            AND PaidAt IS NULL AND PaymentSubmittedAt IS NULL AND NetSatang>0 RETURNING NetSatang
+            AND PaidAt IS NULL AND PaymentSubmittedAt IS NULL AND NetSatang>0 RETURNING NetSatang,PlayDate,StartHour,Hours
             """,tx,("$id",id),("$user",userId),("$now",DateTime.UtcNow.ToString("O")),("$reference",$"กระเป๋าเงิน CB{id:000000}"));
-        var amount=cmd.ExecuteScalar();
-        if(amount is null) return false;
-        Debit(c,tx,userId,(long)amount,$"ชำระค่าจอง CB{id:000000}",bookingId:id);
+        using var r=cmd.ExecuteReader();
+        if(!r.Read())return false;
+        var amount=r.GetInt64(0);
+        var end=Date(r.GetString(1)).ToDateTime(new TimeOnly(r.GetInt32(2),0)).AddHours(r.GetInt32(3));
+        r.Close();
+        if(end<=CourtTime.Now)throw new BookingRuleException("พ้นช่วงเวลาจองแล้ว ไม่สามารถชำระค่าจองรายการนี้ กรุณาติดต่อผู้ดูแล");
+        Debit(c,tx,userId,amount,$"ชำระค่าจอง CB{id:000000}",bookingId:id);
         IssueBookingReceipt(c,tx,id);
         tx.Commit(); return true;
     }

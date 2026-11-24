@@ -4,7 +4,8 @@
 <section class="result-panel"><div class="check-icon status-@Model.Status">@(Model.Status=="Cancelled"?"×":Model.Status=="Pending"?"◷":"✓")</div><p class="eyebrow">YOUR BOOKING</p><h1>@(Model.Status=="Cancelled"?"ยกเลิกการจองแล้ว":"รายละเอียดการจอง")</h1><p class="muted">@Model.Reference · @Model.StatusLabel</p>
 @if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null && Model.NetSatang==0){<p class="alert">ยอดสุทธิ 0 บาท ไม่ต้องชำระเงิน กรุณารอผู้ดูแลยืนยันสถานะรายการ</p>}
 @if(Model.PaymentSubmittedAt is not null&&Model.PaidAt is null&&Model.ApprovalStatus!="Cancelled"){<p class="alert">รายการนี้มีหลักฐานโอนจากระบบเดิม รอผู้ดูแลตรวจสอบการชำระเงิน กรุณาอย่าเติมหรือชำระซ้ำสำหรับรายการนี้</p>}
-@if(Model.ApprovalStatus is "Pending" or "Confirmed" && Model.PaidAt is null && Model.PaymentSubmittedAt is null && Model.NetSatang>0){
+@if((Model.ApprovalStatus is "Pending" or "Confirmed")&&Model.PaidAt is null&&Model.PaymentSubmittedAt is null&&Model.NetSatang>0&&Model.Ends<=CourtTime.Now){<p class="alert">พ้นช่วงเวลาจองแล้ว ไม่สามารถชำระค่าจองรายการนี้ กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแล</a></p>}
+@if(Model.CanPayWallet){
 var balance=ViewBag.WalletBalance is long savedBalance?savedBalance:0;
 var missing=Math.Max(0,Model.NetSatang-balance);
 <section class="panel" id="wallet-payment"><h2>ชำระจากกระเป๋าเงิน</h2><p>ค่าจองรวมอุปกรณ์ ฿@CourtTime.Money(Model.NetSatang)</p><p>ยอดในกระเป๋า ฿@CourtTime.Money(balance)</p>
@@ -12,11 +13,16 @@ var missing=Math.Max(0,Model.NetSatang-balance);
 else{<form asp-action="PayWallet" asp-route-id="@Model.Id" method="post" onsubmit="return confirm('ยืนยันหักยอดค่าจองจากกระเป๋าเงิน?');"><button class="button" type="submit">ยืนยันชำระ ฿@CourtTime.Money(Model.NetSatang) จากกระเป๋าเงิน</button></form>}
 <p class="help">เติมเงินเข้ากระเป๋าก่อนชำระ การเติมเงินยังไม่ตัดค่าจอง หากคืนเงินจะคืนเข้ากระเป๋า COURTBOOK ตามเงื่อนไขการคืนเงิน</p></section>
 }
-@if(Model.PaidAt is not null){<section class="panel"><h2>ใบเสร็จและหลักฐานการเข้าสนาม</h2><div class="action-group"><a class="button" asp-controller="Receipts" asp-action="Details" asp-route-id="@($"RC-BK-{Model.Id:000000}")">ดูใบเสร็จ / พิมพ์หลักฐาน</a></div></section>}
-<p><a class="button secondary" asp-action="ReportDamage" asp-route-id="@Model.Id">แจ้งสนาม / อุปกรณ์ชำรุด และติดตามสถานะ</a></p><p><a class="button secondary" asp-action="EquipmentHandover" asp-route-id="@Model.Id">ดูสถานะรับ–คืนอุปกรณ์</a></p><h2 class="booking-record-heading">ข้อมูลรายการจอง</h2><partial name="_BookingDetails" model="Model"/>
+@if(Model.PaidAt is not null||Model.HasEntryPass){
+<section class="panel"><h2>ใบเสร็จและหลักฐานการเข้าสนาม</h2><div class="action-group action-grid">
+@if(Model.PaidAt is not null){<a class="button" asp-controller="Receipts" asp-action="Details" asp-route-id="@($"RC-BK-{Model.Id:000000}")">ดูใบเสร็จ / พิมพ์หลักฐาน</a>}
+@if(Model.HasEntryPass){<a class="button secondary" asp-action="EntryPass" asp-route-id="@Model.Id">แสดง QR สำหรับเช็กอิน</a>}
+</div></section>
+}
+<div class="action-group action-grid" role="group" aria-label="ติดตามการใช้สนามและอุปกรณ์"><a class="button secondary" asp-action="ReportDamage" asp-route-id="@Model.Id">แจ้งสนาม / อุปกรณ์ชำรุด และติดตามสถานะ</a><a class="button secondary" asp-action="EquipmentHandover" asp-route-id="@Model.Id">ดูสถานะรับ–คืนอุปกรณ์</a></div><h2 class="booking-record-heading">ข้อมูลรายการจอง</h2><partial name="_BookingDetails" model="Model"/>
 @if(Model.CanCancel){
 <details class="panel"><summary>ยกเลิกการจอง</summary><p>เมื่อยกเลิก ช่วงเวลานี้จะเปิดให้ผู้อื่นจอง และยังคงเก็บรายการไว้ในประวัติ</p><form method="post" asp-action="Cancel" asp-route-id="@Model.Id"><button class="button secondary" type="submit">ยืนยันยกเลิกการจอง</button></form></details>
 } else if((Model.PaidAt is not null || Model.PaymentSubmittedAt is not null) && Model.Status!="Cancelled") {
 @if(Model.PaidAt is not null){<p><a class="button secondary" asp-controller="Accounting" asp-action="Index" asp-fragment="refunds">ขอคืนเงิน / ติดตามผลคำขอ</a></p><p class="help">ขอคืนเงินได้ก่อนเริ่มใช้งาน เมื่อผู้ดูแลอนุมัติจะคืนเข้ากระเป๋า COURTBOOK</p>}else{<p class="help">ส่งหลักฐานแล้ว กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแลเพื่อตรวจสอบก่อนยกเลิก</a></p>}
 }
-<div class="action-row"><a class="button" asp-action="History">ดูประวัติการจอง</a><a class="button secondary" asp-controller="Home" asp-action="Index">กลับหน้าแรก</a></div><p class="help">ข้อมูลนี้เป็นผลการจอง ไม่ใช่หลักฐานการชำระเงิน</p></section>
+<div class="action-group action-grid"><a class="button" asp-action="History">ดูประวัติการจอง</a><a class="button secondary" asp-controller="Home" asp-action="Index">กลับหน้าแรก</a></div><p class="help">ข้อมูลนี้เป็นผลการจอง ไม่ใช่หลักฐานการชำระเงิน</p></section>

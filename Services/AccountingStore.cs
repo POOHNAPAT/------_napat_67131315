@@ -126,6 +126,7 @@ public partial class BookingStore
         if(r.IsDBNull(2)||r.GetString(1) is not ("Pending" or "Confirmed")||r.GetInt64(0)<=0||Date(r.GetString(3)).ToDateTime(new TimeOnly(r.GetInt32(4),0))<=CourtTime.Now)
             throw new BookingRuleException("ขอคืนเงินได้เฉพาะรายการที่ชำระแล้ว ยังไม่ยกเลิก และยังไม่ถึงเวลาเริ่มเล่น");
         var amount=r.GetInt64(0);r.Close();
+        EnsureNotCheckedIn(c,tx,form.BookingId);
         // ponytail: one full refund request per booking; add partial/refile workflows only when required.
         using var insert=Cmd(c,"INSERT INTO BookingRefunds(BookingId,AmountSatang,Reason,RequestedAt) VALUES($booking,$amount,$reason,$now)",tx,
             ("$booking",form.BookingId),("$amount",amount),("$reason",form.Reason.Trim()),("$now",DateTime.UtcNow.ToString("O")));
@@ -147,6 +148,7 @@ public partial class BookingStore
         if(approve)
         {
             EnsureEquipmentReturned(c,tx,bookingId);
+            EnsureNotCheckedIn(c,tx,bookingId);
             using var credit=Cmd(c,"INSERT INTO WalletEntries(UserId,AmountSatang,Description,CreatedAt) VALUES($user,$amount,$description,$now) RETURNING Id",tx,
                 ("$user",user),("$amount",amount),("$description",$"คืนค่าจอง RF{id:000000} (CB{bookingId:000000})"),("$now",now));entryId=(long)credit.ExecuteScalar()!;
             using var cancel=Cmd(c,"UPDATE Bookings SET Status='Cancelled',CancelledAt=$now WHERE Id=$id",tx,("$id",bookingId),("$now",now));cancel.ExecuteNonQuery();

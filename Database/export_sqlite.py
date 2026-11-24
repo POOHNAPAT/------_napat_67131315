@@ -12,7 +12,7 @@ import sqlite3
 
 TABLES = (
     "Users", "SportTypes", "Courts", "Promotions", "Bookings", "BookedSlots",
-    "BlockedSlots", "TopUps", "MembershipPlans", "Memberships", "WalletEntries", "DemoPayments", "RentalEquipment", "CourtReviews", "DamageReports", "PaymentReceipts", "Expenses", "BookingRefunds", "MembershipQuotaUses", "DamageEvidence", "DamageClaims", "DamageClaimEvents", "DamageReceipts", "EquipmentStock", "EquipmentLoans", "EquipmentMovements",
+    "BlockedSlots", "TopUps", "MembershipPlans", "Memberships", "WalletEntries", "DemoPayments", "RentalEquipment", "CourtReviews", "DamageReports", "PaymentReceipts", "Expenses", "BookingRefunds", "MembershipQuotaUses", "DamageEvidence", "DamageClaims", "DamageClaimEvents", "DamageReceipts", "EquipmentStock", "EquipmentLoans", "EquipmentMovements", "BookingEntryPasses", "BookingCheckIns", "BookingCheckOuts",
 )
 
 
@@ -69,7 +69,7 @@ def export(source, output):
             for row in cursor if cursor is not None else ():
                 statements.append(f"INSERT INTO {table}({','.join(columns)}) VALUES({','.join(map(literal, row))});")
                 counts[table] += 1
-            if table not in ("BookedSlots", "BlockedSlots", "MembershipPlans", "DemoPayments", "RentalEquipment", "CourtReviews", "PaymentReceipts", "DamageClaims", "DamageReceipts", "EquipmentStock", "EquipmentLoans"):
+            if table not in ("BookedSlots", "BlockedSlots", "MembershipPlans", "DemoPayments", "RentalEquipment", "CourtReviews", "PaymentReceipts", "DamageClaims", "DamageReceipts", "EquipmentStock", "EquipmentLoans", "BookingEntryPasses", "BookingCheckIns", "BookingCheckOuts"):
                 statements.append(f"SELECT setval(pg_get_serial_sequence('{table.lower()}','id'),COALESCE((SELECT MAX(Id) FROM {table}),1),EXISTS(SELECT 1 FROM {table}));")
             statements.append(f"DO $$ BEGIN IF (SELECT COUNT(*) FROM {table}) <> {counts[table]} THEN RAISE EXCEPTION 'Row count mismatch: {table}'; END IF; END $$;")
         statements.append("COMMIT;")

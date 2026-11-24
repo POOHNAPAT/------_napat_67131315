@@ -404,7 +404,7 @@ def run():
                 with ThreadPoolExecutor(max_workers=2) as pool:
                     cancellation_future=pool.submit(cancel_client.request,f"/Bookings/Cancel/{cancel_race_id}",cancel_payload)
                     payment_future=pool.submit(pay_client.request,f"/Bookings/PayWallet/{cancel_race_id}",pay_payload)
-                    check(cancellation_future.result()[0]==200 and payment_future.result()[0]==200,"Concurrent cancellation and payment are handled")
+                    check(cancellation_future.result()[0]==200 and payment_future.result()[0] in (200,404),"Concurrent cancellation and payment are handled; payment may find the cancelled booking ineligible")
                 race_status,race_paid=query("SELECT Status,PaidAt FROM Bookings WHERE Id=?",(cancel_race_id,))[0]
                 race_slots=query("SELECT COUNT(*) FROM BookedSlots WHERE BookingId=?",(cancel_race_id,))[0][0]
                 check((race_status=="Cancelled" and race_paid is None and race_slots==0) or (race_status=="Confirmed" and race_paid is not None and race_slots==1),"Cancellation and payment cannot both succeed for the same booking")

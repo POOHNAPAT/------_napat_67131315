@@ -152,6 +152,16 @@ public record Quote(long GrossSatang, long DiscountSatang, long NetSatang, IRead
 
 public class Booking
 {
+    public BookingCheckIn? CheckIn { get; set; }
+    public BookingCheckOut? CheckOut { get; set; }
+    public int OutstandingEquipment { get; set; }
+    public bool CanCheckOut=>CheckIn is not null&&CheckOut is null&&ApprovalStatus=="Confirmed"&&EntryPaymentComplete&&OutstandingEquipment==0;
+    public DateTime Starts=>Date.ToDateTime(new TimeOnly(StartHour,0));
+    public DateTime Ends=>Starts.AddHours(Hours);
+    public bool EntryPaymentComplete=>PaidAt is not null||NetSatang==0;
+    public bool CanPayWallet=>(ApprovalStatus is "Pending" or "Confirmed")&&PaidAt is null&&PaymentSubmittedAt is null&&NetSatang>0&&Ends>CourtTime.Now;
+    public bool HasEntryPass=>CheckOut is null&&ApprovalStatus=="Confirmed"&&EntryPaymentComplete&&Ends>CourtTime.Now;
+    public string? CheckInBlockReason(DateTime now)=>CheckOut is not null?"รายการนี้เช็กเอาต์แล้ว ไม่สามารถเช็กอินซ้ำได้":CheckIn is not null?"รายการนี้เช็กอินแล้ว":ApprovalStatus=="Cancelled"?"รายการนี้ยกเลิกแล้ว":ApprovalStatus!="Confirmed"?"รอผู้ดูแลยืนยันการจอง":!EntryPaymentComplete?"รายการนี้ยังไม่ชำระเงินครบ":Date!=DateOnly.FromDateTime(now)?"เช็กอินได้เฉพาะวันที่จอง":now<Starts.AddMinutes(-15)?"ยังไม่ถึงเวลาเช็กอิน เปิดก่อนเริ่มเล่น 15 นาที":now>=Ends?"พ้นช่วงเวลาใช้งานแล้ว":null;
     public int IncludedHours { get; set; }
     public int Players { get; set; } = 1;
     public string SportTypeName { get; set; } = "";
@@ -161,7 +171,7 @@ public class Booking
     public string TransferReference { get; set; } = "";
     public string ApprovalStatus { get; set; } = "Pending";
     public string? CancelledAt { get; set; }
-    public bool CanCancel => ApprovalStatus is "Pending" or "Confirmed" && (PaidAt is null || (NetSatang==0 && IncludedHours>0)) && PaymentSubmittedAt is null
+    public bool CanCancel => CheckIn is null && (ApprovalStatus is "Pending" or "Confirmed") && (PaidAt is null || (NetSatang==0 && IncludedHours>0)) && PaymentSubmittedAt is null
         && Date.ToDateTime(new TimeOnly(StartHour, 0)) > CourtTime.Now;
     public string? ConfirmedAt { get; set; }
     public string ConfirmedByName { get; set; } = "";
@@ -185,8 +195,8 @@ public class Booking
     public string PromotionName { get; set; } = "";
     public string Reference => $"CB{Id:000000}";
     public string TimeLabel => $"{CourtTime.Hour(StartHour)}–{CourtTime.Hour(StartHour + Hours)}";
-    public string Status => ApprovalStatus is "Pending" or "Cancelled" ? ApprovalStatus : Date.ToDateTime(TimeOnly.MinValue).AddHours(StartHour + Hours) <= CourtTime.Now ? "Completed" : "Confirmed";
-    public string StatusLabel => Status switch { "Cancelled" => "ยกเลิกแล้ว", "Pending" => "รอผู้ดูแลยืนยัน", "Completed" => "เสร็จสิ้น", _ => "ยืนยันแล้ว" };
+    public string Status => ApprovalStatus is "Pending" or "Cancelled" ? ApprovalStatus : CheckOut is not null||Ends<=CourtTime.Now ? "Completed" : "Confirmed";
+    public string StatusLabel => CheckOut is not null?"เช็กเอาต์แล้ว":Status=="Completed"&&OutstandingEquipment>0?"หมดเวลา · รอคืนอุปกรณ์":Status=="Completed"&&CheckIn is not null?"หมดเวลา · รอเช็กเอาต์":Status switch { "Cancelled" => "ยกเลิกแล้ว", "Pending" => "รอผู้ดูแลยืนยัน", "Completed" => "เสร็จสิ้น", _ => "ยืนยันแล้ว" };
 }
 public record SportType(long Id, string Name);
 public record CourtImage(byte[] Data, string ContentType);

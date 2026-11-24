@@ -11,6 +11,7 @@
     <EmbeddedResource Include="Database/supabase.sql" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="QRCoder" Version="1.9.0" />
     <Content Remove="App_Data/**;tests/**;docs/**" />
     <Compile Remove="tests/**/*.cs" />
     <None Remove="App_Data/**" />

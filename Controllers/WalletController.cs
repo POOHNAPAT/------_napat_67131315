@@ -24,7 +24,7 @@ public class WalletController(BookingStore store, IConfiguration configuration) 
         if(bookingId.HasValue)
         {
             var booking=store.Bookings(UserId).SingleOrDefault(b=>b.Id==bookingId);if(booking is null)return NotFound();
-            var amount=booking.ApprovalStatus is "Pending" or "Confirmed"&&booking.PaidAt is null&&booking.PaymentSubmittedAt is null?booking.NetSatang:0;
+            var amount=booking.CanPayWallet?booking.NetSatang:0;
             checkout=new(bookingId,null,null,"ค่าจอง "+booking.Reference,$"/Bookings/Result/{booking.Id}",amount);
         }
         else if(!string.IsNullOrEmpty(planId))

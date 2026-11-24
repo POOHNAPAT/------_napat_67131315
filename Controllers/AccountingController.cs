@@ -19,7 +19,7 @@ public class AccountingController(BookingStore store):Controller
         {
             var account=store.Accounting(from??new DateOnly(CourtTime.Today.Year,CourtTime.Today.Month,1),to??CourtTime.Today,UserId);
             var refunds=store.Refunds(UserId);
-            var bookings=store.Bookings(UserId).Where(b=>b.PaidAt is not null&&b.NetSatang>0&&(b.ApprovalStatus is "Pending" or "Confirmed")
+            var bookings=store.Bookings(UserId).Where(b=>b.CheckIn is null&&b.PaidAt is not null&&b.NetSatang>0&&(b.ApprovalStatus is "Pending" or "Confirmed")
                 && b.Date.ToDateTime(new TimeOnly(b.StartHour,0))>CourtTime.Now&&!refunds.Any(r=>r.BookingId==b.Id)).ToList();
             return View(new CustomerAccountingPage(account,refunds,bookings));
         }

@@ -219,3 +219,18 @@ ALTER TABLE EquipmentMovements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE TopUps ADD COLUMN IF NOT EXISTS CheckoutPath TEXT NOT NULL DEFAULT '';
 ALTER TABLE TopUps DROP CONSTRAINT IF EXISTS topups_amountsatang_check;
 ALTER TABLE TopUps ADD CONSTRAINT topups_amountsatang_check CHECK(AmountSatang BETWEEN 1 AND 10000000);
+
+-- Private entry passes and staff check-in audit.
+
+            CREATE TABLE IF NOT EXISTS BookingEntryPasses (
+              BookingId BIGINT PRIMARY KEY REFERENCES Bookings(Id),Token TEXT NOT NULL UNIQUE,CreatedAt TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS BookingCheckIns (
+              BookingId BIGINT PRIMARY KEY REFERENCES Bookings(Id),CheckedInAt TEXT NOT NULL,CheckedInBy BIGINT NOT NULL REFERENCES Users(Id),
+              Method TEXT NOT NULL CHECK(Method IN ('Qr','Code')));
+
+ALTER TABLE BookingEntryPasses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE BookingCheckIns ENABLE ROW LEVEL SECURITY;
+CREATE TABLE IF NOT EXISTS BookingCheckOuts (
+    BookingId BIGINT PRIMARY KEY REFERENCES BookingCheckIns(BookingId),
+    CheckedOutAt TEXT NOT NULL,CheckedOutBy BIGINT NOT NULL REFERENCES Users(Id));
+ALTER TABLE BookingCheckOuts ENABLE ROW LEVEL SECURITY;

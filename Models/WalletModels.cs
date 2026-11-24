@@ -70,5 +70,5 @@ public record ReceiptSnapshot(string Kind,string MemberName,string MemberEmail,s
 public record PaymentReceipt(string Id,long? BookingId,long? MembershipId,ReceiptSnapshot Data,string CreatedAt,Booking? Booking=null,BookingRefund? Refund=null)
 {
     public string Title=>Data.Kind=="Damage"?"ใบเสร็จค่าซ่อม / ค่าเสียหาย":Data.Kind=="Booking"&&Data.NetSatang==0&&Data.IncludedHours>0?"หลักฐานใช้สิทธิ์แพ็กสนาม":Data.Kind=="Booking"?"ใบเสร็จค่าจองสนาม":"ใบเสร็จซื้อแพ็กสมาชิก";
-    public string EntryStatus=>Booking is null?"":Booking.ApprovalStatus=="Cancelled"?"ยกเลิกการจองแล้ว":Booking.ApprovalStatus=="Pending"?"รอผู้ดูแลยืนยันการจอง":Booking.Status=="Completed"?"พ้นช่วงเวลาใช้งานแล้ว":Data.IncludedHours>0&&Data.NetSatang==0?"ใช้สิทธิ์แพ็กและยืนยันการจองแล้ว":"ชำระเงินและยืนยันการจองแล้ว";
+    public string EntryStatus=>Booking is null?"":Booking.CheckOut is not null?"เช็กเอาต์แล้ว · รับคืนอุปกรณ์ครบ":Booking.ApprovalStatus=="Cancelled"?"ยกเลิกการจองแล้ว":Booking.ApprovalStatus=="Pending"?"รอผู้ดูแลยืนยันการจอง":Booking.Status=="Completed"?Booking.StatusLabel:Data.IncludedHours>0&&Data.NetSatang==0?"ใช้สิทธิ์แพ็กและยืนยันการจองแล้ว":"ชำระเงินและยืนยันการจองแล้ว";
 }

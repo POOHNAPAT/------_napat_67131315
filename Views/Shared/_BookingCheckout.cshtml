@@ -1,0 +1,16 @@
+@model Booking
+@if(Model.CheckIn is not null&&Model.CheckOut is null){
+<section class="booking-action-panel" aria-labelledby="checkout-heading">
+<h2 id="checkout-heading">จบการใช้งาน / เช็กเอาต์</h2>
+@if(Model.OutstandingEquipment>0){
+<p class="alert">ยังมีอุปกรณ์ค้างคืน @Model.OutstandingEquipment ชิ้น ต้องตรวจรับคืนให้ครบก่อนเช็กเอาต์</p>
+<div class="action-group"><a class="button" asp-controller="Admin" asp-action="EquipmentHandover" asp-route-id="@Model.Id">ตรวจรับคืนอุปกรณ์</a></div>
+}else if(Model.CanCheckOut){
+<p>ไม่มีอุปกรณ์ที่ส่งมอบค้างคืน ตรวจสภาพสนามและยืนยันว่าลูกค้าออกจากสนามแล้วก่อนปิดการใช้งาน</p>
+<form asp-controller="Admin" asp-action="ConfirmCheckOut" asp-route-id="@Model.Id" method="post">
+<label class="checkbox"><input type="checkbox" name="EquipmentVerified" value="true" required/> ตรวจรับอุปกรณ์ครบและลูกค้าออกจากสนามแล้ว</label>
+<div class="action-group"><button class="button" type="submit">ยืนยันเช็กเอาต์</button></div>
+</form>
+}
+</section>
+}

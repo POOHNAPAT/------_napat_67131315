@@ -85,6 +85,7 @@ public partial class BookingStore
         InitializeReceipts(c);
         InitializeAccounting(c);
         InitializeInventory(c);
+        InitializeCheckIns(c);
     }
 
     private static void UpgradeSchema(DbConnection c)
@@ -183,6 +184,7 @@ public partial class BookingStore
         if (start <= CourtTime.Now) throw new BookingRuleException("ไม่สามารถยกเลิกรายการที่ถึงเวลาเล่นแล้ว");
         r.Close();
         EnsureEquipmentReturned(c,tx,id);
+        EnsureNotCheckedIn(c,tx,id);
         using var update = Cmd(c, "UPDATE Bookings SET Status='Cancelled',CancelledAt=$now WHERE Id=$id", tx,
             ("$id", id), ("$now", DateTime.UtcNow.ToString("O")));
         update.ExecuteNonQuery();
@@ -567,8 +569,10 @@ public partial class BookingStore
         using var cmd = Cmd(c,"""
             SELECT b.Id,b.UserId,u.Name,u.Email,b.CourtId,b.CourtName,b.PlayDate,b.StartHour,b.Hours,b.PriceSatang,
             b.GrossSatang,b.DiscountSatang,b.NetSatang,b.PromotionName,b.Status,b.ConfirmedAt,COALESCE(a.Name,''),
-            b.PaidAt,COALESCE(p.Name,''),b.PaymentReference,b.CancelledAt,b.PaymentSubmittedAt,b.TransferReference,b.EquipmentJson,b.SportTypeName,b.Players,COALESCE((SELECT Hours FROM MembershipQuotaUses WHERE BookingId=b.Id),0) FROM Bookings b JOIN Users u ON u.Id=b.UserId
+            b.PaidAt,COALESCE(p.Name,''),b.PaymentReference,b.CancelledAt,b.PaymentSubmittedAt,b.TransferReference,b.EquipmentJson,b.SportTypeName,b.Players,COALESCE((SELECT Hours FROM MembershipQuotaUses WHERE BookingId=b.Id),0),ci.CheckedInAt,COALESCE(staff.Name,''),ci.Method,co.CheckedOutAt,COALESCE(checkoutStaff.Name,''),COALESCE((SELECT SUM(l.IssuedQuantity-l.GoodQuantity-l.DamagedQuantity) FROM EquipmentLoans l WHERE l.BookingId=b.Id),0) FROM Bookings b JOIN Users u ON u.Id=b.UserId
             LEFT JOIN Users a ON a.Id=b.ConfirmedBy LEFT JOIN Users p ON p.Id=b.PaidBy
+            LEFT JOIN BookingCheckIns ci ON ci.BookingId=b.Id LEFT JOIN Users staff ON staff.Id=ci.CheckedInBy
+            LEFT JOIN BookingCheckOuts co ON co.BookingId=b.Id LEFT JOIN Users checkoutStaff ON checkoutStaff.Id=co.CheckedOutBy
             WHERE ($user IS NULL OR b.UserId=$user) AND ($date IS NULL OR b.PlayDate=$date) AND ($court IS NULL OR b.CourtId=$court)
             ORDER BY b.Id DESC
             """,null,("$user",userId),("$date",date.HasValue?CourtTime.Iso(date.Value):null),("$court",courtId));
@@ -581,6 +585,8 @@ public partial class BookingStore
             ApprovalStatus=r.GetString(14),ConfirmedAt=r.IsDBNull(15)?null:r.GetString(15),ConfirmedByName=r.GetString(16),
             PaidAt=r.IsDBNull(17)?null:r.GetString(17),PaidByName=r.GetString(18),PaymentReference=r.GetString(19),
             CancelledAt=r.IsDBNull(20)?null:r.GetString(20),PaymentSubmittedAt=r.IsDBNull(21)?null:r.GetString(21),TransferReference=r.GetString(22),
+            CheckIn=r.IsDBNull(27)?null:new BookingCheckIn(r.GetString(27),r.GetString(28),r.GetString(29)),
+            CheckOut=r.IsDBNull(30)?null:new BookingCheckOut(r.GetString(30),r.GetString(31)),OutstandingEquipment=checked((int)r.GetInt64(32)),
             IncludedHours=r.GetInt32(26),Players=r.GetInt32(25),SportTypeName=r.GetString(24), Equipment=System.Text.Json.JsonSerializer.Deserialize<List<BookingEquipment>>(r.GetString(23)) ?? [] });
         return result;
     }

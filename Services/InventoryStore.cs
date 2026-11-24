@@ -59,7 +59,7 @@ public partial class BookingStore
     {
         using var cmd=Cmd(c,"""
             SELECT l.BookingId,l.EquipmentId,l.EquipmentName,l.Unit,l.ReservedQuantity,l.IssuedQuantity,l.GoodQuantity,l.DamagedQuantity,l.Revision,
-              b.PlayDate,b.StartHour,b.Hours,b.Status,u.Name,b.PaidAt
+              b.PlayDate,b.StartHour,b.Hours,CASE WHEN EXISTS(SELECT 1 FROM BookingCheckOuts co WHERE co.BookingId=b.Id) THEN 'CheckedOut' ELSE b.Status END,u.Name,b.PaidAt
             FROM EquipmentLoans l JOIN Bookings b ON b.Id=l.BookingId JOIN Users u ON u.Id=b.UserId
             WHERE ($booking IS NULL OR l.BookingId=$booking) AND ($equipment='' OR l.EquipmentId=$equipment) AND ($user IS NULL OR b.UserId=$user)
             ORDER BY b.PlayDate,b.StartHour,l.BookingId,l.EquipmentId
@@ -74,7 +74,7 @@ public partial class BookingStore
         // Late returns occupy stock until recorded as returned, including future bookings.
         var baseline=loans.Where(l=>l.Ends<=now||l.BookingStatus=="Cancelled").Sum(l=>l.Outstanding);
         var changes=new List<(DateTime At,int Change)>();
-        foreach(var loan in loans.Where(l=>l.BookingStatus!="Cancelled"&&l.Ends>now&&l.RemainingReservation>0))
+        foreach(var loan in loans.Where(l=>l.BookingStatus is not ("Cancelled" or "CheckedOut")&&l.Ends>now&&l.RemainingReservation>0))
         {
             var start=loan.Starts>from?loan.Starts:from;var end=loan.Ends<to?loan.Ends:to;
             if(start>=end)continue;

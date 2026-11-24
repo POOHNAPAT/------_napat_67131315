@@ -1,0 +1,23 @@
+@model CheckInPage
+@{ViewData["Title"]="เช็กอินเข้าใช้สนาม";}
+<div class="page-heading"><h1>เช็กอินเข้าใช้สนาม</h1><p>สแกน QR จากหน้าการจองของลูกค้า ตรวจชื่อและรายละเอียด แล้วกดยืนยัน</p></div>
+<div asp-validation-summary="All" class="validation alert" role="alert"></div>
+<div class="checkin-grid"><section class="panel"><h2>สแกน QR / ค้นหารหัสจอง</h2>
+<div id="checkin-reader" aria-label="พื้นที่สแกน QR"></div>
+<div class="action-group"><button id="start-checkin-camera" class="button" type="button">เปิดกล้องสแกน QR</button><button id="stop-checkin-camera" class="button secondary" type="button" disabled>ปิดกล้อง</button></div>
+<p id="checkin-scan-status" class="help" role="status" aria-live="polite">เปิดกล้องเมื่อพร้อม หากใช้กล้องไม่ได้ สามารถเลือกรูป QR หรือกรอกรหัสแทนได้</p>
+<label for="checkin-qr-file">อ่าน QR จากรูปภาพ</label><input id="checkin-qr-file" type="file" accept="image/png,image/jpeg,image/webp"/><p class="help">รูป QR ไม่เกิน 10 MB รูปจะถูกอ่านในเครื่องของผู้ตรวจ</p>
+<form asp-action="CheckInLookup" method="post" id="checkin-lookup-form"><label for="checkin-code">รหัสจองสำรอง</label><input id="checkin-code" name="Code" value="@(Model.Method=="Qr"?"":Model.Code)" maxlength="128" required placeholder="เช่น CB000001" autocomplete="off" spellcheck="false"/><button type="submit" class="button secondary">ตรวจสอบรายการจอง</button></form></section>
+<section class="panel" id="checkin-result">
+@if(Model.Booking is Booking booking){var reason=booking.CheckInBlockReason(CourtTime.Now);
+<div class="section-heading"><h2>@booking.Reference</h2><span class="pill">@booking.StatusLabel</span></div><h3>@booking.CourtName</h3><dl class="details"><dt>ชื่อผู้จอง</dt><dd><strong>@booking.MemberName</strong><br/>@booking.MemberEmail</dd><dt>วันที่ / เวลา</dt><dd>@CourtTime.Display(booking.Date)<br/>@booking.TimeLabel</dd><dt>ผู้เล่น</dt><dd>@booking.Players คน</dd><dt>การชำระเงิน</dt><dd>@(booking.NetSatang==0?"ยอด 0 บาท ไม่ต้องชำระ":booking.PaymentStatusLabel)<br/>฿@CourtTime.Money(booking.NetSatang)</dd><dt>วิธีตรวจ</dt><dd>@((booking.CheckIn?.Method??Model.Method)=="Qr"?"QR ประจำรายการจอง":"รหัสจองสำรอง")</dd></dl>
+@if(booking.CheckIn is { } entry){<div class="alert success" role="status"><strong>เช็กอินแล้ว</strong><p>@DateTimeOffset.Parse(entry.CheckedInAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น. · @entry.StaffName · @(entry.Method=="Qr"?"สแกน QR":"ตรวจรหัสจอง")</p></div>}
+else if(reason is not null){<p class="alert" id="checkin-block-reason">@reason</p>}
+else{<form asp-action="ConfirmCheckIn" method="post" id="confirm-checkin-form"><input name="Code" type="hidden" value="@Model.Code"/><label class="checkbox"><input name="IdentityVerified" type="checkbox" value="true" required/> ตรวจชื่อผู้จอง วันเวลา สนาม และการชำระเงินกับลูกค้าแล้ว</label><button class="button" type="submit">ยืนยันเช็กอินเข้าใช้สนาม</button></form>}
+@if(booking.CheckOut is { } departure){<div class="alert success"><strong>เช็กเอาต์แล้ว · รับคืนอุปกรณ์ครบ</strong><p>@DateTimeOffset.Parse(departure.CheckedOutAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture) น. · @departure.StaffName</p></div>}
+<partial name="_BookingCheckout" model="booking"/>
+<p><a asp-action="Booking" asp-route-id="@booking.Id">ดูรายละเอียดการจอง</a></p>
+}else{<h2>รอตรวจสอบรายการ</h2><p>ให้ลูกค้าเปิด QR จาก “การจองของฉัน” หรือแจ้งรหัสจองพร้อมชื่อ ระบบยังไม่บันทึกเช็กอินจนกว่าคุณจะตรวจข้อมูลและกดยืนยัน</p><p class="help">รับเฉพาะรายการที่ยืนยันแล้ว ชำระครบหรือยอด 0 บาท และอยู่ในช่วงเวลาเช็กอินของวันนี้</p>}
+</section></div>
+<section class="panel checkin-today"><h2>รายการจองวันนี้</h2><p class="help">กดตรวจสอบเพื่อดูรายละเอียดก่อนเช็กอิน</p><div class="table-wrap" tabindex="0" role="region" aria-label="รายการจองและเช็กอินวันนี้"><table><thead><tr><th>รหัส / ลูกค้า</th><th>สนาม / เวลา</th><th>การชำระเงิน</th><th>เช็กอิน</th><th></th></tr></thead><tbody>@foreach(var todayBooking in Model.Today){<tr><td>@todayBooking.Reference<br/>@todayBooking.MemberName</td><td>@todayBooking.CourtName<br/>@todayBooking.TimeLabel</td><td>@todayBooking.PaymentStatusLabel<br/><small>@todayBooking.StatusLabel</small></td><td>@(todayBooking.CheckIn is null?"ยังไม่เช็กอิน":"เช็กอินแล้ว")</td><td><a asp-action="CheckIn" asp-route-id="@todayBooking.Id">ตรวจสอบ</a></td></tr>}@if(Model.Today.Count==0){<tr><td colspan="5">ไม่มีรายการจองวันนี้</td></tr>}</tbody></table></div></section>
+@section Scripts {<script src="~/lib/html5-qrcode/html5-qrcode.min.js" asp-append-version="true"></script><script src="~/js/checkin.js" asp-append-version="true"></script>}

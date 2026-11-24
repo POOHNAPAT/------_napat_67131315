@@ -73,6 +73,21 @@ public class BookingsController(BookingStore store) : Controller
         ViewBag.WalletBalance = store.WalletBalance(UserId);
         return booking is null ? NotFound() : View(booking);
     }
+    [HttpGet,Authorize(Roles="Member")]
+    public IActionResult EntryPass(long id)
+    {
+        Response.Headers["Cache-Control"]="no-store";Response.Headers["Referrer-Policy"]="no-referrer";
+        var pass=store.EntryPass(id,UserId);return pass is null?NotFound():View(pass);
+    }
+    [HttpGet,Authorize(Roles="Member")]
+    public IActionResult EntryQr(long id)
+    {
+        var pass=store.EntryPass(id,UserId);if(pass?.Payload is null)return NotFound();
+        using var data=QRCoder.QRCodeGenerator.GenerateQrCode(pass.Payload,QRCoder.QRCodeGenerator.ECCLevel.M);
+        using var image=new QRCoder.PngByteQRCode(data);
+        Response.Headers["Cache-Control"]="no-store";Response.Headers["X-Content-Type-Options"]="nosniff";
+        return File(image.GetGraphic(8),"image/png");
+    }
     [HttpGet]
     public IActionResult PaymentSlip(long id)
     {

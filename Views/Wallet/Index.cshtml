@@ -4,11 +4,12 @@
 <p class="action-group"><a class="button secondary" asp-controller="Accounting" asp-action="Index">บัญชีและการชำระเงิน</a><a class="button secondary" asp-controller="Receipts" asp-action="Index">ใบเสร็จของฉัน</a></p>
 <div asp-validation-summary="All" class="validation alert" role="alert"></div>
 @if(checkout is not null){<section class="panel wallet-checkout" id="checkout-return"><h2>@checkout.Title</h2>@if(checkout.RequiredSatang>0){<p>ยอดรายการ ฿@CourtTime.Money(checkout.RequiredSatang) · ขาดอีก ฿@CourtTime.Money(checkout.MissingSatang(Model.BalanceSatang))</p>}else{<p>รายการนี้ไม่มียอดรอชำระ กรุณากลับไปตรวจสถานะล่าสุดก่อนเติมเงินเพิ่ม</p>}
-@if(checkout.MissingSatang(Model.BalanceSatang)>0){<p>กรอกยอดที่ขาดไว้ให้แล้ว เมื่อเติมเงินสำเร็จให้กลับไปตรวจรายการและยืนยันชำระ</p>@if(checkout.MissingSatang(Model.BalanceSatang)>10000000){<p class="help">เติมได้ครั้งละไม่เกิน 100,000 บาท สามารถทยอยเติมจนครบยอดได้</p>}}
+@if(checkout.MissingSatang(Model.BalanceSatang)>0&&ViewData["DemoTopUpsEnabled"] is true){<p>กรอกยอดเครดิตที่ต้องเติมไว้ให้แล้ว เมื่อเติมสำเร็จให้กลับไปตรวจรายการและยืนยันชำระ</p>@if(checkout.MissingSatang(Model.BalanceSatang)<100){<p class="help">ยอดที่ขาดต่ำกว่า 1 บาท การเติมเครดิตทดลองมีขั้นต่ำ 1 บาท ส่วนที่เหลือเก็บไว้ในกระเป๋า</p>}@if(checkout.MissingSatang(Model.BalanceSatang)>10000000){<p class="help">เติมได้ครั้งละไม่เกิน 100,000 บาท สามารถทยอยเติมจนครบยอดได้</p>}}
+else if(checkout.MissingSatang(Model.BalanceSatang)>0){<p>ขณะนี้การเติมเงินยังไม่เปิดให้บริการ กรุณาติดต่อผู้ดูแล</p>}
 else{<p>กลับไปตรวจสถานะและยืนยันชำระรายการเดิมได้ ไม่มีการตัดเงินอัตโนมัติจากการเติมเงิน</p>}
 <a class="button secondary" href="@checkout.ReturnUrl">กลับไปรายการเดิม / ชำระต่อ</a></section>}
 <section class="panel"><p class="eyebrow">YOUR BALANCE</p><h2>ยอดคงเหลือ ฿@CourtTime.Money(Model.BalanceSatang)</h2><p>ใช้ชำระค่าจอง อุปกรณ์ แพ็กสมาชิก และค่าซ่อมที่ยอมรับแล้ว โดยยืนยันชำระในแต่ละรายการ</p>
-<div class="action-row"><a class="button" href="#topup">เติมเงินเข้ากระเป๋า</a></div>
+@if(ViewData["DemoTopUpsEnabled"] is true){<div class="action-row"><a class="button" href="#topup">เติมเงินเข้ากระเป๋า</a></div>}
 
 </section>
 @if(ViewData["DemoTopUpsEnabled"] is true){
@@ -20,26 +21,14 @@ else{<p>กลับไปตรวจสถานะและยืนยัน
 <label for="demo-amount">ยอดเครดิตทดลอง (บาท)</label><input id="demo-amount" name="Amount" type="number" min="1" max="100000" step="0.01" value="@(suggested>0?Math.Max(1,suggested.Value):100)" required aria-describedby="demo-amount-help"/>
 <p class="help" id="demo-amount-help">ครั้งละ 1–100,000 บาท ทศนิยมไม่เกิน 2 ตำแหน่ง</p>
 <button class="button" type="submit">ไปหน้าชำระเงินทดลอง</button></form>
-<p><a href="#transfer-topup">เติมเงินผ่านธนาคารและแนบสลิป</a></p>
 </section>
 }
-<section class="panel" id="@(ViewData["DemoTopUpsEnabled"] is true ? "transfer-topup" : "topup")" aria-labelledby="topup-heading"><p class="eyebrow">TOP UP</p><h2 id="topup-heading">เติมเงินด้วยการโอนและแนบสลิป</h2>
-<h3>วิธีเติมเงินผ่านแอปธนาคาร</h3>
-<ol>
-<li><strong>สแกน QR ด้านล่าง</strong> หรือกดบันทึก QR แล้วเลือกรูปจากอัลบั้มในแอปธนาคาร</li>
-<li><strong>กรอกยอดที่ต้องการเติม 0.01–100,000 บาท</strong> ตรวจสอบชื่อผู้รับและยอดเงินในแอปธนาคารก่อนยืนยันโอน QR นี้ไม่ได้กำหนดยอดเงินไว้</li>
-<li><strong>บันทึกสลิปหลังโอนสำเร็จ</strong> แล้วกรอกยอดที่โอนและแนบรูปสลิปในแบบฟอร์มด้านล่าง</li>
-<li><strong>กด “แจ้งเติมเงิน”</strong> ผู้ดูแลจะตรวจรายการรับเงินจริงก่อนอนุมัติ เมื่ออนุมัติแล้วดูยอดได้ในประวัติกระเป๋าเงิน</li>
-</ol>
-<p class="alert">การส่งสลิปยังไม่เพิ่มยอดเงิน ยอดจะเข้ากระเป๋าเมื่อสถานะเป็น “เติมเงินสำเร็จ” ไม่ต้องโอนซ้ำระหว่างรอตรวจสอบ</p>
-<div class="qr-payment-grid"><div class="qr-code-card"><img src="~/images/payment-qr.jpg" asp-append-version="true" alt="QR สำหรับโอนเงินเติมกระเป๋า"/><a class="button secondary small" href="~/images/payment-qr.jpg" download="courtbook-topup-qr.jpg">บันทึก QR สำหรับเติมเงิน</a></div>
-<form asp-action="TopUp" asp-route-bookingId="@checkout?.BookingId" asp-route-planId="@checkout?.PlanId" asp-route-damageId="@checkout?.DamageId" method="post" enctype="multipart/form-data"><label for="topup-amount">ยอดที่โอน (บาท)</label><input id="topup-amount" name="Amount" type="number" min="0.01" max="100000" step="0.01" value="@(ViewData["TopUpAmount"]??(suggested>0?suggested:null))" required/>
-<label for="topup-slip">สลิปโอนเงิน</label><input id="topup-slip" name="Slip" type="file" accept="image/jpeg,image/png,image/webp" required/>
-<p class="help">JPG, PNG หรือ WebP ไม่เกิน 5 MB · ใช้สลิปใหม่สำหรับเติมเงินเท่านั้น ห้ามใช้สลิปที่ชำระค่าจองแล้ว</p>
-<button class="button" type="submit">แจ้งเติมเงิน</button></form></div></section>
-<section class="panel" id="topup-requests"><h2>คำขอเติมเงินของฉัน</h2><p class="help">ยอดเข้ากระเป๋าหลังผู้ดูแลอนุมัติเท่านั้น ระหว่างรอตรวจสอบไม่ต้องโอนหรือส่งคำขอซ้ำ</p>
+else{<section class="panel"><p class="alert">ขณะนี้การเติมเงินยังไม่เปิดให้บริการ กรุณา<a asp-controller="Home" asp-action="Contact">ติดต่อผู้ดูแล</a></p></section>}
+@if(Model.TopUps.Count>0){
+<section class="panel" id="topup-requests"><h2>ประวัติคำขอเติมเงิน</h2><p class="help">คำขอที่เคยส่งพร้อมหลักฐานจะเพิ่มยอดหลังผู้ดูแลอนุมัติ ระหว่างรอตรวจสอบไม่ต้องส่งคำขอซ้ำ</p>
 <div class="table-wrap"><table><thead><tr><th>รายการ / ยอดเติม</th><th>สถานะ</th><th>หลักฐาน / ดำเนินการต่อ</th></tr></thead><tbody>@foreach(var topup in Model.TopUps){<tr><td>TU@(topup.Id.ToString("000000"))<br/>฿@CourtTime.Money(topup.AmountSatang)</td><td>@topup.StatusLabel<br/><small>@topup.ReviewNote</small></td><td><a asp-action="Slip" asp-route-id="@topup.Id" target="_blank" rel="noopener">ดูสลิป</a>@if(WalletCheckout.SafePath(topup.CheckoutPath)){<br/><a href="@topup.CheckoutPath">กลับไปรายการเดิม</a>}</td></tr>}@if(Model.TopUps.Count==0){<tr><td colspan="3">ยังไม่มีคำขอเติมเงิน</td></tr>}</tbody></table></div></section>
+}
 <section class="panel"><h2>ประวัติกระเป๋าเงิน</h2><div class="table-wrap"><table><thead><tr><th>เวลา</th><th>รายการ</th><th>ยอดเงินเข้า / ออก</th></tr></thead><tbody>
-@foreach(var e in Model.Entries){<tr><td>@DateTimeOffset.Parse(e.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture)</td><td>@e.Description</td><td>@(e.AmountSatang>0?"+":"−")฿@CourtTime.Money(Math.Abs(e.AmountSatang))</td></tr>}
+@foreach(var e in Model.Entries){<tr><td>@DateTimeOffset.Parse(e.CreatedAt).ToOffset(TimeSpan.FromHours(7)).ToString("dd/MM/yyyy HH:mm",System.Globalization.CultureInfo.InvariantCulture)</td><td>@if(e.Description.StartsWith("เครดิตทดลองอัตโนมัติ ",StringComparison.Ordinal)){<span>เติมเครดิตเข้ากระเป๋า</span><br/><small>เครดิตทดลอง · ไม่มีการเรียกเก็บเงินจริง</small>}else{@e.Description}</td><td>@(e.AmountSatang>0?"+":"−")฿@CourtTime.Money(Math.Abs(e.AmountSatang))</td></tr>}
 @if(Model.Entries.Count==0){<tr><td colspan="3">ยังไม่มีรายการ</td></tr>}
 </tbody></table></div></section>

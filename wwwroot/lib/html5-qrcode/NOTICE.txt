@@ -1,0 +1,6 @@
+html5-qrcode 2.3.8
+Upstream author: Minhaz and html5-qrcode contributors.
+License: Apache-2.0 (see LICENSE).
+Upstream: https://github.com/mebjas/html5-qrcode
+Pinned distribution: https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js
+Used only in the administrator check-in page; camera/photo QR decoding runs locally.

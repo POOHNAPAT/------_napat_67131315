@@ -29,7 +29,7 @@ public record EquipmentLoan(long BookingId,string EquipmentId,string Name,string
     public DateTime Ends=>Starts.AddHours(Hours);
     public bool CanIssue=>BookingStatus=="Confirmed"&&PaidAt is not null&&CourtTime.Now>=Starts&&CourtTime.Now<Ends&&Unissued>0;
     public bool Overdue=>Outstanding>0&&Ends<=CourtTime.Now;
-    public string StatusLabel=>Overdue?"เกินกำหนดคืน":Outstanding>0?"อยู่กับลูกค้า":BookingStatus=="Cancelled"?"ยกเลิกการจอง":IssuedQuantity>0&&IssuedQuantity==GoodQuantity+DamagedQuantity&&Unissued==0?"คืนครบแล้ว":IssuedQuantity>0?"คืนแล้วบางส่วน / ยังส่งมอบไม่ครบ":"รอส่งมอบ";
+    public string StatusLabel=>Overdue?"เกินกำหนดคืน":Outstanding>0?"อยู่กับลูกค้า":BookingStatus=="Cancelled"?"ยกเลิกการจอง":BookingStatus=="CheckedOut"?(IssuedQuantity>0?"คืนครบแล้ว":"ไม่ได้ส่งมอบ · เช็กเอาต์แล้ว"):IssuedQuantity>0&&IssuedQuantity==GoodQuantity+DamagedQuantity&&Unissued==0?"คืนครบแล้ว":IssuedQuantity>0?"คืนแล้วบางส่วน / ยังส่งมอบไม่ครบ":"รอส่งมอบ";
 }
 public record EquipmentInventory(RentalEquipment Equipment,int TotalQuantity,int RepairQuantity,int Revision,int IssuedQuantity,int OverdueQuantity,int PeakReserved)
 {

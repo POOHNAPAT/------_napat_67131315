@@ -10,5 +10,5 @@
 <div class="form-grid"><div><label asp-for="Price">ค่าเช่าต่อครั้ง (บาท)</label><input asp-for="Price" type="number" min="0.01" max="100000" step="0.01" required/></div><div><label asp-for="Unit">หน่วยนับ</label><input asp-for="Unit" maxlength="30" placeholder="เช่น ลูก อัน คู่ ชุด" required/></div></div>
 <label asp-for="ImageUrl">รูปอุปกรณ์ (HTTPS หรือ /images/...)</label><input asp-for="ImageUrl" placeholder="เว้นว่างเพื่อใช้ภาพประกอบอุปกรณ์"/><label class="checkbox"><input asp-for="IsActive"/>เปิดให้เช่า</label>
 <p class="help">คิดค่าเช่าต่อการจองหนึ่งครั้ง ไม่รวมส่วนลดสนาม การแก้ไขไม่เปลี่ยนชื่อและราคาของรายการจองที่บันทึกแล้ว</p>
-<div class="action-row"><button class="button" type="submit">บันทึกอุปกรณ์</button><a class="button secondary" asp-action="Equipment">กลับรายการ</a></div>
+<div class="action-group action-grid"><button class="button" type="submit">บันทึกอุปกรณ์</button><a class="button secondary" asp-action="Equipment">กลับรายการ</a></div>
 </form>
