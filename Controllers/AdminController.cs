@@ -145,7 +145,7 @@ public partial class AdminController(BookingStore store) : Controller
         }
         ViewBag.QuotaSports=store.SportTypes();return View(store.Plans());
     }
-    [HttpGet] public IActionResult TopUps() => View(store.TopUps());
+    [HttpGet] public IActionResult TopUps() => RedirectToAction(nameof(Index));
     [HttpPost]
     public IActionResult ReviewTopUp(long id, bool approve, string? note)
     {

@@ -30,6 +30,7 @@ export async function runCheckInScenario({call,evaluate,waitFor,waitPath,navigat
     }
   }
   await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1050,deviceScaleFactor:1,mobile:false});
+  setBase(base);await navigate('/Bookings/Result/'+id);await screenshot('11-customer-booking-confirmed');
   setBase(base);await navigate('/Bookings/EntryPass/'+id);
   await waitFor("document.getElementById('entry-qr')?.naturalWidth>0");await screenshot('01-customer-entry-pass');
   const png=await evaluate("fetch(document.getElementById('entry-qr').src).then(r=>r.arrayBuffer()).then(b=>{let s='';for(const n of new Uint8Array(b))s+=String.fromCharCode(n);return btoa(s);})");

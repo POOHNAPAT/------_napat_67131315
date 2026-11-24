@@ -1,0 +1,12 @@
+{
+  "decodedActualQr": true,
+  "explicitStaffConfirmation": true,
+  "duplicateCheckInBlocked": true,
+  "cameraFailureFallback": true,
+  "staffCheckout": true,
+  "mobileWidths": [
+    360,
+    768
+  ],
+  "productionDatabaseChanged": false
+}

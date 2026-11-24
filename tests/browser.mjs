@@ -231,7 +231,6 @@ try {
   await screenshot('09-admin');
   await navigate('/Admin/Plans'); await screenshot('32-membership-plans');
   if(await evaluate("document.querySelector('main').innerText.includes('@plan')")) throw new Error('Plan button contains unrendered Razor expression');
-  await navigate('/Admin/TopUps'); await screenshot('33-admin-topups');
   await navigate('/Admin/Courts'); await screenshot('10-admin-courts');
   await navigate('/Admin/Court/1'); await screenshot('10b-court-form');
   const documentNode=await call('DOM.getDocument');

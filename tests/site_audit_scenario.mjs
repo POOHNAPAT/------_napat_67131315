@@ -4,7 +4,7 @@ import path from 'node:path';
 export async function runSiteAudit({call,evaluate,navigate,screenshot,base,adminBase,output,setBase}) {
   const portals=[
     [base,['/','/Home/About','/Home/Contact','/Home/Membership','/Wallet','/Bookings/History','/Bookings/Result/1','/Accounting','/Receipts','/Courts','/Courts/Details/1','/Bookings/Create?courtId=1','/Account/Profile','/Account/EditProfile','/Bookings/ReportDamage']],
-    [adminBase,['/Admin','/Admin/Bookings','/Admin/Booking/1','/Admin/Courts','/Admin/Schedule','/Admin/Customers','/Admin/SportTypes','/Admin/Equipment','/Admin/EquipmentItem/racket','/Admin/Inventory','/Admin/Plans','/Admin/Revenue','/Admin/Accounting','/Admin/Refunds','/Admin/Expenses','/Admin/DamageReports','/Admin/TopUps','/Admin/CheckIn','/Admin/EquipmentStock/racket','/Admin/Promotions']]
+    [adminBase,['/Admin','/Admin/Bookings','/Admin/Booking/1','/Admin/Courts','/Admin/Schedule','/Admin/Customers','/Admin/SportTypes','/Admin/Equipment','/Admin/EquipmentItem/racket','/Admin/Inventory','/Admin/Plans','/Admin/Revenue','/Admin/Accounting','/Admin/Refunds','/Admin/Expenses','/Admin/DamageReports','/Admin/CheckIn','/Admin/EquipmentStock/racket','/Admin/Promotions']]
   ];
   const results=[];
   for(const width of [360,768,1440]) {

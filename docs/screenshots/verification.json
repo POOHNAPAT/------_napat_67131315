@@ -1,11 +1,25 @@
-{
-  "pages": 13,
-  "extraForms": 3,
-  "mobileWidths": [
-    390
-  ],
-  "bookingNetBaht": 510,
-  "javascriptErrors": [],
-  "productionDatabaseChanged": false,
-  "source": "Real MVC views, isolated SQLite, Testing environment"
+﻿{
+    "mobileWidths":  [
+                         360,
+                         390,
+                         768
+                     ],
+    "bookingNetBaht":  510,
+    "damageClaimAcceptedBaht":  25,
+    "javascriptErrors":  [
+
+                         ],
+    "productionDatabaseChanged":  false,
+    "source":  "Real MVC views, isolated SQLite, Testing environment",
+    "generatedAt":  "2026-11-24T16:45:13.5528038+07:00",
+    "screenshotCount":  124,
+    "routeViewportChecks":  102,
+    "routes":  34,
+    "includes":  [
+                     "current wallet and demo credit",
+                     "booking receipts and QR",
+                     "stock and equipment returns",
+                     "staff check-in and checkout",
+                     "desktop, tablet and mobile"
+                 ]
 }

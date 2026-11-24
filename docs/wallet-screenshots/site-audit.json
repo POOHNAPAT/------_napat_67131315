@@ -1,0 +1,920 @@
+[
+  {
+    "portal": "customer",
+    "route": "/",
+    "width": 360,
+    "title": "ทุกเกม เริ่มที่นี่ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/About",
+    "width": 360,
+    "title": "เกี่ยวกับ COURTBOOK · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Contact",
+    "width": 360,
+    "title": "ติดต่อผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Membership",
+    "width": 360,
+    "title": "แพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Wallet",
+    "width": 360,
+    "title": "กระเป๋าเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/History",
+    "width": 360,
+    "title": "ประวัติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Result/1",
+    "width": 360,
+    "title": "ผลการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Accounting",
+    "width": 360,
+    "title": "บัญชีและการชำระเงินของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Receipts",
+    "width": 360,
+    "title": "ใบเสร็จของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts",
+    "width": 360,
+    "title": "สนามและตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts/Details/1",
+    "width": 360,
+    "title": "สนาม A · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Create?courtId=1",
+    "width": 360,
+    "title": "จองสนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/Profile",
+    "width": 360,
+    "title": "บัญชีของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/EditProfile",
+    "width": 360,
+    "title": "แก้ไขข้อมูลส่วนตัว · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/ReportDamage",
+    "width": 360,
+    "title": "แจ้งปัญหาให้ผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin",
+    "width": 360,
+    "title": "ภาพรวมผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Bookings",
+    "width": 360,
+    "title": "รายการจองทั้งหมด · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Booking/1",
+    "width": 360,
+    "title": "รายละเอียด CB000001 · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Courts",
+    "width": 360,
+    "title": "จัดการสนามและราคา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Schedule",
+    "width": 360,
+    "title": "จัดการตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Customers",
+    "width": 360,
+    "title": "บัญชีลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/SportTypes",
+    "width": 360,
+    "title": "ประเภทกีฬา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Equipment",
+    "width": 360,
+    "title": "อุปกรณ์เสริม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentItem/racket",
+    "width": 360,
+    "title": "แก้ไขอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Inventory",
+    "width": 360,
+    "title": "สต็อกและรับ–คืนอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Plans",
+    "width": 360,
+    "title": "จัดการแพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Revenue",
+    "width": 360,
+    "title": "รายได้และสถิติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Accounting",
+    "width": 360,
+    "title": "บัญชีรายรับ–รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Refunds",
+    "width": 360,
+    "title": "คำขอคืนเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Expenses",
+    "width": 360,
+    "title": "รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/DamageReports",
+    "width": 360,
+    "title": "ข้อความและรายงานจากลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/CheckIn",
+    "width": 360,
+    "title": "เช็กอินเข้าใช้สนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentStock/racket",
+    "width": 360,
+    "title": "ปรับสต็อก · ไม้แบดมินตัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Promotions",
+    "width": 360,
+    "title": "จัดการโปรโมชั่น · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/",
+    "width": 768,
+    "title": "ทุกเกม เริ่มที่นี่ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/About",
+    "width": 768,
+    "title": "เกี่ยวกับ COURTBOOK · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Contact",
+    "width": 768,
+    "title": "ติดต่อผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Membership",
+    "width": 768,
+    "title": "แพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Wallet",
+    "width": 768,
+    "title": "กระเป๋าเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/History",
+    "width": 768,
+    "title": "ประวัติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Result/1",
+    "width": 768,
+    "title": "ผลการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Accounting",
+    "width": 768,
+    "title": "บัญชีและการชำระเงินของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Receipts",
+    "width": 768,
+    "title": "ใบเสร็จของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts",
+    "width": 768,
+    "title": "สนามและตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts/Details/1",
+    "width": 768,
+    "title": "สนาม A · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Create?courtId=1",
+    "width": 768,
+    "title": "จองสนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/Profile",
+    "width": 768,
+    "title": "บัญชีของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/EditProfile",
+    "width": 768,
+    "title": "แก้ไขข้อมูลส่วนตัว · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/ReportDamage",
+    "width": 768,
+    "title": "แจ้งปัญหาให้ผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin",
+    "width": 768,
+    "title": "ภาพรวมผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Bookings",
+    "width": 768,
+    "title": "รายการจองทั้งหมด · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Booking/1",
+    "width": 768,
+    "title": "รายละเอียด CB000001 · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Courts",
+    "width": 768,
+    "title": "จัดการสนามและราคา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Schedule",
+    "width": 768,
+    "title": "จัดการตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Customers",
+    "width": 768,
+    "title": "บัญชีลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/SportTypes",
+    "width": 768,
+    "title": "ประเภทกีฬา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Equipment",
+    "width": 768,
+    "title": "อุปกรณ์เสริม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentItem/racket",
+    "width": 768,
+    "title": "แก้ไขอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Inventory",
+    "width": 768,
+    "title": "สต็อกและรับ–คืนอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Plans",
+    "width": 768,
+    "title": "จัดการแพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Revenue",
+    "width": 768,
+    "title": "รายได้และสถิติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Accounting",
+    "width": 768,
+    "title": "บัญชีรายรับ–รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Refunds",
+    "width": 768,
+    "title": "คำขอคืนเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Expenses",
+    "width": 768,
+    "title": "รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/DamageReports",
+    "width": 768,
+    "title": "ข้อความและรายงานจากลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/CheckIn",
+    "width": 768,
+    "title": "เช็กอินเข้าใช้สนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentStock/racket",
+    "width": 768,
+    "title": "ปรับสต็อก · ไม้แบดมินตัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Promotions",
+    "width": 768,
+    "title": "จัดการโปรโมชั่น · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/",
+    "width": 1440,
+    "title": "ทุกเกม เริ่มที่นี่ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/About",
+    "width": 1440,
+    "title": "เกี่ยวกับ COURTBOOK · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Contact",
+    "width": 1440,
+    "title": "ติดต่อผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Home/Membership",
+    "width": 1440,
+    "title": "แพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Wallet",
+    "width": 1440,
+    "title": "กระเป๋าเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/History",
+    "width": 1440,
+    "title": "ประวัติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Result/1",
+    "width": 1440,
+    "title": "ผลการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Accounting",
+    "width": 1440,
+    "title": "บัญชีและการชำระเงินของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Receipts",
+    "width": 1440,
+    "title": "ใบเสร็จของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts",
+    "width": 1440,
+    "title": "สนามและตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Courts/Details/1",
+    "width": 1440,
+    "title": "สนาม A · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/Create?courtId=1",
+    "width": 1440,
+    "title": "จองสนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/Profile",
+    "width": 1440,
+    "title": "บัญชีของฉัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Account/EditProfile",
+    "width": 1440,
+    "title": "แก้ไขข้อมูลส่วนตัว · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "customer",
+    "route": "/Bookings/ReportDamage",
+    "width": 1440,
+    "title": "แจ้งปัญหาให้ผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin",
+    "width": 1440,
+    "title": "ภาพรวมผู้ดูแล · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Bookings",
+    "width": 1440,
+    "title": "รายการจองทั้งหมด · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Booking/1",
+    "width": 1440,
+    "title": "รายละเอียด CB000001 · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Courts",
+    "width": 1440,
+    "title": "จัดการสนามและราคา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Schedule",
+    "width": 1440,
+    "title": "จัดการตารางเวลา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Customers",
+    "width": 1440,
+    "title": "บัญชีลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/SportTypes",
+    "width": 1440,
+    "title": "ประเภทกีฬา · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Equipment",
+    "width": 1440,
+    "title": "อุปกรณ์เสริม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentItem/racket",
+    "width": 1440,
+    "title": "แก้ไขอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Inventory",
+    "width": 1440,
+    "title": "สต็อกและรับ–คืนอุปกรณ์ · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Plans",
+    "width": 1440,
+    "title": "จัดการแพ็กสมาชิก · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Revenue",
+    "width": 1440,
+    "title": "รายได้และสถิติการจอง · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Accounting",
+    "width": 1440,
+    "title": "บัญชีรายรับ–รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Refunds",
+    "width": 1440,
+    "title": "คำขอคืนเงิน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Expenses",
+    "width": 1440,
+    "title": "รายจ่าย · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/DamageReports",
+    "width": 1440,
+    "title": "ข้อความและรายงานจากลูกค้า · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/CheckIn",
+    "width": 1440,
+    "title": "เช็กอินเข้าใช้สนาม · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/EquipmentStock/racket",
+    "width": 1440,
+    "title": "ปรับสต็อก · ไม้แบดมินตัน · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  },
+  {
+    "portal": "admin",
+    "route": "/Admin/Promotions",
+    "width": 1440,
+    "title": "จัดการโปรโมชั่น · COURTBOOK",
+    "main": true,
+    "overflow": false,
+    "brokenImages": []
+  }
+]
